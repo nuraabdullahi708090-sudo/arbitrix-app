@@ -25,8 +25,8 @@ test('1. the reconciliation queue exists and is admin-gated', () => {
 });
 
 test('2. it surfaces both silent failure modes', () => {
-  assert.ok(SERVER.includes("select('id, user_id, amount_usd, amount_crypto, currency, status, credited, created_at, expires_at')"),
-    'stale pending invoices are listed with the exact crypto amount');
+  assert.ok(SERVER.includes("select('id, invoice_id, user_id, amount_usd, amount_crypto, currency, network, status, credited, provider, provider_invoice_ref, provider_tx_hash, wallet_address, created_at, expires_at')"),
+    'stale pending invoices are listed with the exact crypto amount AND the provider identifiers needed to investigate them');
   assert.ok(SERVER.includes("select('id, user_id, amount, status, credited, created_at')"),
     'confirmed-but-uncredited deposits are listed');
   assert.ok(SERVER.includes("eq('status', 'confirmed')"), 'it looks for confirmed deposits');
@@ -54,7 +54,11 @@ test('4. the exact on-chain amount is exposed, because a mismatch is the likely 
 });
 
 test('5. the window is bounded so a wide query cannot stall the admin view', () => {
-  assert.match(SERVER, /const hours = Math\.min\(Math\.max\(parseInt\(req\.query\.hours, 10\) \|\| 2, 1\), 168\)/,
-    'hours is clamped to 1..168');
+  // The default window is 24h (a payment from yesterday must be visible in the
+  // default view without an operator having to know the query string) and the
+  // maximum is 30 days. Rows stay capped, so a wide window cannot return an
+  // unbounded result set.
+  assert.match(SERVER, /const hours = Math\.min\(Math\.max\(parseInt\(req\.query\.hours, 10\) \|\| 24, 1\), 720\)/,
+    'hours is clamped to 1..720 with a 24h default');
   assert.ok(SERVER.includes('.limit(200)'), 'both lists are capped');
 });

@@ -103,5 +103,11 @@ test('the endpoint stays read-only on the server', () => {
     const route = SERVER.slice(start, end > start ? end : start + 3000);
     assert.ok(!/\.insert\(|\.update\(|\.upsert\(|\.rpc\(/.test(route),
         'the reconciliation route performs no writes');
-    assert.match(route, /select\('id, user_id, amount_usd, amount_crypto/);
+    // The projection grew (provider id, tx hash, payout address) so an operator can
+    // investigate a payment instead of guessing, but the fields this test exists to
+    // protect are all still there.
+    assert.match(route, /select\('id, invoice_id, user_id, amount_usd, amount_crypto/);
+    for (const field of ['provider', 'provider_invoice_ref', 'provider_tx_hash', 'wallet_address']) {
+        assert.ok(route.includes(field), 'the reconciliation projection includes ' + field);
+    }
 });

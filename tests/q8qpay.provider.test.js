@@ -182,7 +182,10 @@ test('parsePaymentData: maps camelCase txHash (q8qpay simulate/verify response f
     assert.strictEqual(data.transactionHash, 'sandbox_tx_abc123');
 });
 
-test('parsePaymentData: missing transaction hash yields undefined (not a fake value)', () => {
+// `null` rather than `undefined` on purpose: the parsed payment is serialised into
+// the durable webhook record, and an `undefined` field silently disappears from
+// JSON while an explicit null stays visible to whoever reads the record.
+test('parsePaymentData: missing transaction hash yields null (never a fake value)', () => {
     const p = makeProvider();
     const data = p.parsePaymentData({
         invoice_id: 'q8q-uuid',
@@ -192,7 +195,7 @@ test('parsePaymentData: missing transaction hash yields undefined (not a fake va
         payout_address: 'TXyz789',
         amount_usdt_exact: '50.0000'
     });
-    assert.strictEqual(data.transactionHash, undefined);
+    assert.strictEqual(data.transactionHash, null);
 });
 
 test('parsePaymentData: tx_hash takes precedence over txHash', () => {

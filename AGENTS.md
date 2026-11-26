@@ -11279,3 +11279,90 @@ NOT DONE: no merge, no deploy, no migration applied, no production configuration
   CTA + terms link, 0 unexpected page errors.
 - NOT verified from here: a real production login (no credentials) and real Telegram
   round-trip; both are covered by the local harness against the same bundle.
+
+## In-app support consolidation MERGED + DEPLOYED (2026-11-26)
+- Merge commit: cff15d60be637b8372c04fa867ac09a23110b54e ("Merge pull request #224
+  from nuraabdullahi708090-sudo/feat/inapp-support-primary"), feature commit 2f0c2fb.
+  Base was main@531bf7b (PR #223); a normal fast-forward of one commit, no
+  force/rebase/reset. The PR was a DRAFT, so it was marked ready for review first and
+  merged with the head SHA pinned (`sha`), which refuses a moved head.
+- CI on the head commit: `static checks` success, `npm test` success (4349 pass locally).
+- Render auto-deployed: the previous build was still served at t+20s and the new one at
+  ~t+40s. The served https://arbitrix.pro/ index.html is BYTE-IDENTICAL to the merged file
+  (sha256 2ad742dd8ba9415b6b1bb7034a9161d025513bb16c9f235bd710ea0ec31cc2a0). /api/health 200.
+- Served markers: `function kxOpenSupport(` x1, `function kxConsumeSupportDeepLink(` x1,
+  `KX_SUPPORT_DEEP_LINK_RETRY_MS = [` x1, `onclick="kxOpenSupport(` x9,
+  `onclick="openSupportModal(` x0, `arbitrix-support-telegram` x0, `js-official-telegram`
+  x0, `getOfficialSupportTelegramUrl` x0, `updateSupportLinks` x0, `support.notConfigured`
+  x0, `ns.context.deposit` x6, `data-kx-support` x6, and exactly ONE t.me link -
+  `https://t.me/ArbitrixAnnouncements/19`, the withdrawal WALKTHROUGH (`#withdrawTutorialCta`,
+  "Watch our step-by-step Kalderix withdrawal tutorial"). That is tutorial content, not a
+  support destination; it predates this work and is pinned by the suite.
+- Pages: /partners, /terms-of-service.html, /privacy-policy.html all 200 with a `?support=1`
+  link and NO t.me; /deposit-tutorials 200 with its four tutorial links (content).
+- Guards intact: GET /api/support/conversations 401, GET /api/admin/support/counts 401,
+  POST /api/webhook/q8qpay 401 {"error":"Missing signature"}, POST /api/telegram/webhook
+  401 invalid_secret, unknown /api path 404 JSON.
+- Production browser smoke (headless Chromium against the live site, ANONYMOUS - no
+  credentials, nothing sent, no conversation created) = 26/26: the entry point and the
+  deep-link consumer are in the shipped bundle, the Telegram link builder is gone, the
+  landing has exactly one support control deep-linking `/?support=1` with no other
+  Telegram/mailbox destination, the Support Center opens with no t.me anchor and its chat
+  action calls kxOpenSupport, a signed-out click throws nothing and stays on the site,
+  partners/terms/privacy point at the in-app chat with no t.me, and 0 horizontal overflow
+  at 390px.
+- STILL NOT VERIFIED: an authenticated production conversation (no customer credentials)
+  and a real Telegram -> widget round trip. The post-deploy check for an operator: open
+  support from any screen, send a message, reply from Telegram, confirm the reply appears
+  in the open panel and again after a page refresh.
+- This note is intentionally LEFT UNCOMMITTED so recording it does not trigger a second
+  Render rebuild (the working tree therefore shows AGENTS.md modified - documentation only).
+
+## Q8QPay settlement: durable diagnosis + recovery (2026-11-26, branch fix/q8qpay-settlement-recovery, NOT deployed)
+- REPORTED: a customer paid ~1 day earlier and the wallet was never credited. Cause could
+  not be read from this environment (the Supabase host does not resolve and no DB
+  credential exists), so the work closed every failure class that could produce it and made
+  the rest observable. Full analysis: docs/payments/Q8QPAY-SETTLEMENT-AUDIT.md.
+- ROOT CAUSE CLASS (before): the q8qpay webhook wrote NOTHING on any failure branch. A
+  rejected settlement (wrong amount basis, unparseable payload, transient DB error or a
+  webhook that never arrived) left no row anywhere, so neither the customer nor the admin
+  had any evidence. Additionally `parsePaymentData` expected field names q8qpay does not
+  send, the amount was compared against `amount_usd` instead of `amount_crypto` (what
+  q8qpay quotes and what the address-reuse discriminator perturbs), and a transient failure
+  answered 200 so the provider never retried.
+- CHANGED: new `services/q8qpaySettlement.js` (one settlement path shared by the webhook
+  and the customer's "Refresh status"), every delivery recorded in `webhook_logs`
+  (`recordQ8qpayWebhookEvent` in server.js), tolerant `parsePaymentData`, honest HTTP
+  semantics (permanent validation 200 / transient 500), customer-side recovery in
+  `POST /api/payment/check/:invoiceId`, and an extended read-only
+  `/api/admin/deposits/reconciliation` (+ `?verify=1` provider check) that the admin panel
+  now renders. `credit_payment_safe` is still the only credit path (idempotent, keyed on
+  the provider tx hash).
+- NO MIGRATION: uses `payment_invoices`, `webhook_logs` and `credit_payment_safe`, all
+  existing. No environment variable changed, no wallet/deposit/withdrawal/crediting logic
+  altered beyond the settlement decision points above.
+- TESTS: `tests/q8qpay.webhook.e2e.test.js` (37, boots the REAL server behind an offline
+  Supabase substitute injected with `NODE_OPTIONS=--require
+  tests/helpers/fake-q8qpay-preload.js` and asserts the DB writes, the credit RPC, the
+  status codes and the retry matrix), `tests/q8qpay.settlement.test.js` (31, pipeline +
+  provider helpers), `tests/admin_reconciliation_review_rows.test.js` (5, runs the real
+  panel renderer). The old `tests/q8qpay.webhook.test.js` was a hand-copied MIRROR of the
+  route (it never exercised server.js) and was removed; its coverage now lives in the
+  e2e suite against the real code. 6 source pins updated for intentional moves (credit RPC
+  now inside the pipeline, reconciliation projections/window, H2 semantics read from the
+  OUTCOMES table). `npm test` = 4410 pass / 0 fail.
+- TRAP FOUND WHILE BUILDING THE HARNESS: supabase-js sends `Accept:
+  application/vnd.pgrst.object+json` in a `Headers` instance; a fake that only reads a plain
+  object answers an ARRAY, `.single()` returns that array as `data`, and every column reads
+  as undefined - the settlement then refuses a perfectly good invoice with
+  `missing_stored_amount`. Parse all three header shapes (`tests/helpers/fake-q8qpay-preload.js`).
+- TRAP: deduplicating dictionary keys in public/index.html with a "keep the first
+  occurrence" rule CHANGES user-visible copy, because a JS object literal keeps the LAST.
+  The pre-existing `landing.howItWorks.*` duplicates have DIFFERENT values; 5 keys x 6
+  locales silently changed. The file was restored and the edit re-applied; the guard used
+  here is a parsed key->value diff against HEAD that must show exactly the intended
+  additions and zero changed values.
+- OPERATOR STEP that no code can verify: `Q8QPAY_CALLBACK_URL` must equal the URL registered
+  in the q8qpay dashboard exactly (scheme/host/path, no trailing-slash difference) and
+  `BASE_URL` must be the public origin. Documented in `.env.example` with the read-only
+  queries to run for the uncredited payment.

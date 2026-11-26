@@ -129,11 +129,36 @@ test('H2: a database credit failure is a 5xx everywhere', () => {
 
 test('H2: duplicates and validation outcomes still answer 200', () => {
   // Replay safety: an already-credited invoice is a successful no-op, not a fault.
-  assert.match(Q8QPAY, /if \(invoice\.credited\)[\s\S]{0,220}status\(200\)\.json\(\{ success: true, message: 'Already processed' \}\)/);
-  assert.match(Q8QPAY, /Duplicate payment \(not re-credited\)/);
+  // (A durable record is written between the check and the response now, so the
+  // two statements are asserted separately rather than as one adjacent pair.)
+  assert.match(Q8QPAY, /if \(invoice\.credited\) \{/);
+  assert.match(Q8QPAY, /message: 'Already processed'/);
+  // The wording moved into the shared outcome table with the rest of the policy.
+  const SETTLEMENT_SRC = fs.readFileSync(path.join(ROOT, 'services/q8qpaySettlement.js'), 'utf8');
+  assert.match(SETTLEMENT_SRC, /Duplicate payment \(not re-credited\)/);
+  assert.match(Q8QPAY, /outcome\.code === 'already_credited' \|\| outcome\.code === 'duplicate'/);
   assert.match(PAYMENTO, /Duplicate payment/);
-  // A not-yet-confirmed invoice is a validation outcome; 200 avoids a retry storm.
-  assert.match(Q8QPAY, /not confirmed/);
+
+  // The response code is no longer decided inline: every outcome declares its own
+  // policy, and the route answers `outcome.httpStatus`. Executing the real table is
+  // a stronger pin than a regex on one branch.
+  const { OUTCOMES } = require('../services/q8qpaySettlement');
+  const byCode = (code) => Object.values(OUTCOMES).find((o) => o.code === code);
+  for (const code of ['credited', 'already_credited', 'duplicate', 'unknown_invoice', 'reference_mismatch',
+    'asset_mismatch', 'amount_mismatch', 'address_mismatch', 'missing_stored_amount']) {
+    assert.strictEqual(byCode(code).httpStatus, 200, code + ' is a handled outcome: 200, no retry storm');
+  }
+  // Transient states must NOT be acknowledged, or the provider never retries.
+  for (const code of ['provider_not_confirmed', 'verify_failed', 'missing_tx_hash', 'credit_failed']) {
+    assert.strictEqual(byCode(code).httpStatus, 500, code + ' is retryable: 5xx');
+    assert.strictEqual(byCode(code).transient, true, code + ' is declared retryable');
+  }
+  // Everything that is neither credited nor retryable must need a human.
+  for (const code of ['unknown_invoice', 'reference_mismatch', 'asset_mismatch', 'amount_mismatch',
+    'address_mismatch', 'missing_stored_amount', 'missing_tx_hash', 'credit_failed', 'verify_failed']) {
+    assert.strictEqual(byCode(code).needsReview, true, code + ' leaves a durable review record');
+  }
+  assert.match(Q8QPAY, /res\.status\(outcome\.httpStatus\)/, 'the route answers the classified status');
 });
 
 test('H2: database idempotency remains the authoritative replay protection', () => {

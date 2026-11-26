@@ -27,6 +27,23 @@ const crypto = require('crypto');
 
 const API_BASE = 'https://q8qpay.com';
 
+/**
+ * Normalise a signature header value.
+ *
+ * Providers differ on presentation: some send `sha256=<hex>`, some uppercase hex,
+ * some add whitespace from a header rewrite. None of that changes the digest, so
+ * the value is trimmed, a scheme prefix is removed and hex is lower-cased before
+ * comparison. Anything that is not hex is returned as-is so it simply fails to
+ * match instead of throwing.
+ */
+function normalizeSignature(signature) {
+    let value = String(signature == null ? '' : signature).trim();
+    if (!value) return '';
+    value = value.replace(/^sha256=/i, '').trim();
+    if (/^[0-9a-fA-F]+$/.test(value)) return value.toLowerCase();
+    return value;
+}
+
 // q8qpay webhook `type` / `status` values we care about
 const Q8QPAY_STATUS = {
     PENDING: 'pending',
@@ -273,35 +290,66 @@ class Q8QPayProvider extends ProviderInterface {
      * @param {string} signature - Value of X-Webhook-Signature header (hex)
      * @returns {Promise<boolean>}
      */
-    async verifyWebhook(rawBody, signature) {
+    async verifyWebhook(rawBody, signature, parsedBody) {
         if (!this.webhookSecret) {
             console.error('[Q8QPay] CRITICAL: Webhook secret not configured! Rejecting webhook.');
             return false;
         }
-        if (!signature) {
+        const provided = normalizeSignature(signature);
+        if (!provided) {
             console.warn('[Q8QPay] Webhook received without signature - REJECTED');
             return false;
         }
 
         try {
-            const bodyBuffer = Buffer.isBuffer(rawBody)
-                ? rawBody
-                : Buffer.from(String(rawBody), 'utf8');
+            // q8qpay's own documentation signs `JSON.stringify(body)` - the parsed
+            // object re-serialised - not the wire bytes:
+            //
+            //   crypto.createHmac('sha256', secret).update(JSON.stringify(body))
+            //
+            // Verifying ONLY the raw bytes therefore rejects a legitimate delivery
+            // whenever their serialisation differs from what we received (key
+            // spacing, escaping, an upstream proxy). Both forms are keyed with the
+            // same secret, so accepting either is exactly as strong: an attacker
+            // still needs the secret to produce a matching digest. The raw-byte
+            // form stays first because it is the stricter reading of "the exact
+            // bytes received".
+            const candidates = [];
 
-            const calculated = crypto
-                .createHmac('sha256', this.webhookSecret)
-                .update(bodyBuffer)
-                .digest('hex');
+            if (rawBody != null) {
+                const bodyBuffer = Buffer.isBuffer(rawBody)
+                    ? rawBody
+                    : Buffer.from(String(rawBody), 'utf8');
+                if (bodyBuffer.length > 0) candidates.push(bodyBuffer);
+            }
 
-            const a = Buffer.from(calculated, 'utf8');
-            const b = Buffer.from(String(signature), 'utf8');
+            if (parsedBody && typeof parsedBody === 'object') {
+                try {
+                    candidates.push(Buffer.from(JSON.stringify(parsedBody), 'utf8'));
+                } catch (e) { /* unparsable object: nothing to hash */ }
+            }
 
-            if (a.length !== b.length) {
-                console.warn('[Q8QPay] HMAC signature length mismatch');
+            if (!candidates.length) {
+                console.warn('[Q8QPay] Webhook body was empty - cannot verify signature');
                 return false;
             }
 
-            return crypto.timingSafeEqual(a, b);
+            const providedBuf = Buffer.from(provided, 'utf8');
+            let matched = false;
+            for (const candidate of candidates) {
+                const expected = Buffer.from(
+                    crypto.createHmac('sha256', this.webhookSecret).update(candidate).digest('hex'),
+                    'utf8'
+                );
+                // Length check first: timingSafeEqual throws on a length mismatch.
+                if (expected.length === providedBuf.length
+                    && crypto.timingSafeEqual(expected, providedBuf)) {
+                    matched = true;
+                }
+            }
+
+            if (!matched) console.warn('[Q8QPay] HMAC signature did not match any accepted body form');
+            return matched;
         } catch (error) {
             console.error('[Q8QPay] verifyWebhook error:', error);
             return false;
@@ -389,19 +437,43 @@ class Q8QPayProvider extends ProviderInterface {
      * @returns {object}
      */
     parsePaymentData(payload) {
+        const body = payload || {};
+        const metadata = (body.metadata && typeof body.metadata === 'object') ? body.metadata : {};
+
+        // The documented payload (q8qpay.com/docs) uses snake_case and
+        // `invoice_reference`. Every field is read through the documented name
+        // FIRST and the camelCase alias second, and our own identifiers are
+        // accepted from `metadata` as a last resort: we put them there at invoice
+        // creation, so a webhook that omits or renames the reference field still
+        // resolves to the right invoice instead of being dropped as "unknown".
+        //
+        // Nothing here is trusted for money: the status, amount, address and hash
+        // that decide a credit come from the authenticated GET /invoices/:id
+        // re-verification (see services/q8qpaySettlement.js).
+        const invoiceId = body.invoice_reference
+            || body.invoiceReference
+            || body.reference
+            || metadata.arbitrixDepositRef
+            || metadata.arbitrixInvoiceId
+            || metadata.orderId
+            || null;
+
         return {
-            invoiceId: payload.invoice_reference,     // our Kalderix reference
-            providerInvoiceId: payload.invoice_id,    // q8qpay UUID
-            walletAddress: payload.payout_address,    // customer TRC20 destination
-            amount: payload.amount_usdt_exact,        // exact amount paid
+            invoiceId,                                          // our Kalderix reference
+            providerInvoiceId: body.invoice_id || body.invoiceId || body.id || null,
+            walletAddress: body.payout_address || body.payoutAddress || null,
+            amount: body.amount_usdt_exact != null ? body.amount_usdt_exact
+                : (body.amountUsdtExact != null ? body.amountUsdtExact : body.amount),
             currency: 'USDT',
             network: 'TRC20',
-            assetCode: payload.asset_code,
-            transactionHash: payload.tx_hash || payload.txHash,
-            status: payload.status,
-            paidAt: payload.paid_at,
-            type: payload.type,
-            metadata: payload.metadata || {}
+            assetCode: body.asset_code || body.assetCode || null,
+            transactionHash: body.tx_hash || body.txHash || null,
+            status: body.status || null,
+            paidAt: body.paid_at || body.paidAt || null,
+            type: body.type || null,
+            amountFiat: body.amount_fiat != null ? body.amount_fiat : body.amountFiat,
+            fiatCurrency: body.fiat_currency || body.fiatCurrency || null,
+            metadata
         };
     }
 

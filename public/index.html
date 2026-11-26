@@ -9267,9 +9267,11 @@ function toggleFaq(btn) {
                                 <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
                                     <select id="reconciliationWindow" onchange="loadDepositReconciliation()" style="padding:5px 8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--on-brand);font-size:11px;">
                                         <option value="2">2h</option>
-                                        <option value="24">24h</option>
+                                        <option value="24" selected>24h</option>
                                         <option value="168">7d</option>
+                                        <option value="720">30d</option>
                                     </select>
+                                    <button type="button" onclick="loadDepositReconciliation(true)" title="Ask q8qpay for the live status of each unsettled q8qpay invoice (read-only)" style="background:var(--border);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--brand);font-size:11px;cursor:pointer;"><i class="fas fa-satellite-dish"></i> <span data-i18n="admin.reconciliation.verify">Verify with provider</span></button>
                                     <button type="button" onclick="loadDepositReconciliation()" style="background:var(--border);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--brand);font-size:11px;cursor:pointer;"><i class="fas fa-sync-alt"></i> <span data-i18n="admin.refresh">Refresh</span></button>
                                 </div>
                             </div>
@@ -12594,6 +12596,11 @@ const TRANSLATIONS = {
         'admin.reconciliation.stale': '{{count}} pending invoice(s)',
         'admin.reconciliation.uncredited': '{{count}} confirmed but uncredited',
         'admin.reconciliation.empty': 'Nothing to reconcile in this window.',
+        'admin.reconciliation.needsReview': '{{count}} need review',
+        'admin.reconciliation.verify': 'Verify with provider',
+        'admin.reconciliation.providerPaid': 'Provider confirms payment - not credited',
+        'admin.reconciliation.providerPending': 'Provider reports {{status}}',
+        'admin.reconciliation.reason': 'Reason: {{reason}}',
         'admin.viewActivity': 'View Activity',
         'admin.checkHealth': 'Check Health',
         'admin.recentActivity': 'Recent Activity',
@@ -14199,6 +14206,11 @@ const TRANSLATIONS = {
         'admin.reconciliation.stale': '{{count}} factura(s) pendiente(s)',
         'admin.reconciliation.uncredited': '{{count}} confirmado(s) sin acreditar',
         'admin.reconciliation.empty': 'Nada que conciliar en este periodo.',
+        'admin.reconciliation.needsReview': '{{count}} requieren revisi\u00f3n',
+        'admin.reconciliation.verify': 'Verificar con el proveedor',
+        'admin.reconciliation.providerPaid': 'El proveedor confirma el pago - no acreditado',
+        'admin.reconciliation.providerPending': 'El proveedor informa {{status}}',
+        'admin.reconciliation.reason': 'Motivo: {{reason}}',
         'admin.viewActivity': 'Ver actividad',
         'admin.checkHealth': 'Comprobar salud',
         'admin.recentActivity': 'Actividad reciente',
@@ -15805,6 +15817,11 @@ const TRANSLATIONS = {
         'admin.reconciliation.stale': '{{count}} fatura(s) pendente(s)',
         'admin.reconciliation.uncredited': '{{count}} confirmado(s) sem crédito',
         'admin.reconciliation.empty': 'Nada para conciliar neste período.',
+        'admin.reconciliation.needsReview': '{{count}} precisam de revis\u00e3o',
+        'admin.reconciliation.verify': 'Verificar com o provedor',
+        'admin.reconciliation.providerPaid': 'O provedor confirma o pagamento - n\u00e3o creditado',
+        'admin.reconciliation.providerPending': 'O provedor informa {{status}}',
+        'admin.reconciliation.reason': 'Motivo: {{reason}}',
         'admin.viewActivity': 'Ver atividade',
         'admin.checkHealth': 'Verificar saúde',
         'admin.recentActivity': 'Atividade recente',
@@ -17411,6 +17428,11 @@ const TRANSLATIONS = {
         'admin.reconciliation.stale': '{{count}} facture(s) en attente',
         'admin.reconciliation.uncredited': '{{count}} confirmé(s) non crédité(s)',
         'admin.reconciliation.empty': 'Rien à rapprocher sur cette période.',
+        'admin.reconciliation.needsReview': '{{count}} \u00e0 v\u00e9rifier',
+        'admin.reconciliation.verify': 'V\u00e9rifier aupr\u00e8s du fournisseur',
+        'admin.reconciliation.providerPaid': 'Le fournisseur confirme le paiement - non cr\u00e9dit\u00e9',
+        'admin.reconciliation.providerPending': 'Le fournisseur indique {{status}}',
+        'admin.reconciliation.reason': 'Motif: {{reason}}',
         'admin.viewActivity': 'Voir l\'activité',
         'admin.checkHealth': 'Vérifier la santé',
         'admin.recentActivity': 'Activité récente',
@@ -19017,6 +19039,11 @@ const TRANSLATIONS = {
         'admin.reconciliation.stale': '{{count}} فاتورة معلّقة',
         'admin.reconciliation.uncredited': '{{count}} مؤكدة دون إضافة رصيد',
         'admin.reconciliation.empty': 'لا توجد عمليات للتسوية في هذه الفترة.',
+        'admin.reconciliation.needsReview': '{{count}} \u0628\u062d\u0627\u062c\u0629 \u0625\u0644\u0649 \u0645\u0631\u0627\u062c\u0639\u0629',
+        'admin.reconciliation.verify': '\u0627\u0644\u062a\u062d\u0642\u0642 \u0645\u0639 \u0627\u0644\u0645\u0632\u0648\u0651\u062f',
+        'admin.reconciliation.providerPaid': '\u0627\u0644\u0645\u0632\u0648\u0651\u062f \u064a\u0624\u0643\u062f \u0627\u0644\u062f\u0641\u0639 - \u0644\u0645 \u064a\u064f\u0636\u064e\u0641 \u0625\u0644\u0649 \u0627\u0644\u0631\u0635\u064a\u062f',
+        'admin.reconciliation.providerPending': '\u0627\u0644\u0645\u0632\u0648\u0651\u062f \u064a\u0641\u064a\u062f \u0628\u0623\u0646 \u0627\u0644\u062d\u0627\u0644\u0629 {{status}}',
+        'admin.reconciliation.reason': '\u0627\u0644\u0633\u0628\u0628: {{reason}}',
         'admin.viewActivity': 'عرض النشاط',
         'admin.checkHealth': 'فحص الصحة',
         'admin.recentActivity': 'النشاط الأخير',
@@ -20623,6 +20650,11 @@ const TRANSLATIONS = {
         'admin.reconciliation.stale': '{{count}} 张待处理发票',
         'admin.reconciliation.uncredited': '{{count}} 笔已确认但未入账',
         'admin.reconciliation.empty': '此时间范围内无需核对的项目。',
+        'admin.reconciliation.needsReview': '{{count}} \u4e2a\u5f85\u6838\u67e5',
+        'admin.reconciliation.verify': '\u5411\u670d\u52a1\u5546\u6838\u5b9e',
+        'admin.reconciliation.providerPaid': '\u670d\u52a1\u5546\u5df2\u786e\u8ba4\u4ed8\u6b3e - \u5c1a\u672a\u5165\u8d26',
+        'admin.reconciliation.providerPending': '\u670d\u52a1\u5546\u72b6\u6001\uff1a{{status}}',
+        'admin.reconciliation.reason': '\u539f\u56e0\uff1a{{reason}}',
         'admin.viewActivity': '查看活动',
         'admin.checkHealth': '检查健康',
         'admin.recentActivity': '近期活动',
@@ -30021,16 +30053,19 @@ function renderAdminUsers(users) {
 // into a queue: a pending invoice the customer may have paid (rounded amount,
 // paid after expiry) and a confirmed deposit that was never credited. Nothing
 // here credits anything - reconciliation stays a human act.
-async function loadDepositReconciliation() {
+// `verifyProvider` is an explicit administrator action: it asks q8qpay for the live
+// status of the unsettled q8qpay invoices. The endpoint stays read-only either way.
+async function loadDepositReconciliation(verifyProvider) {
     const tbody = document.getElementById('reconciliationTable');
     const summary = document.getElementById('reconciliationSummary');
     const token = localStorage.getItem('jwt_token');
     if (!tbody || !token) return;
     const sel = document.getElementById('reconciliationWindow');
-    const hours = sel && sel.value ? sel.value : '2';
+    const hours = sel && sel.value ? sel.value : '24';
+    const verify = verifyProvider === true;
     tbody.innerHTML = '<tr><td colspan="4" style="padding:14px;text-align:center;color:var(--text-muted);">' + t('common.loading') + '</td></tr>';
     try {
-        const res = await fetch('/api/admin/deposits/reconciliation?hours=' + encodeURIComponent(hours), {
+        const res = await fetch('/api/admin/deposits/reconciliation?hours=' + encodeURIComponent(hours) + (verify ? '&verify=1' : ''), {
             headers: { Authorization: 'Bearer ' + token }
         });
         const data = await res.json().catch(function () { return {}; });
@@ -30055,15 +30090,62 @@ function renderAdminReconciliation(data) {
     };
     const stale = data.stalePending || [];
     const uncredited = data.uncreditedConfirmed || [];
+    const confirmedUncredited = data.confirmedButUncredited || [];
+    const review = data.needsReview || [];
+    const checks = data.providerChecks || [];
     if (summary) {
-        summary.textContent = t('admin.reconciliation.stale', { count: stale.length }) + ' | ' +
+        let text = t('admin.reconciliation.stale', { count: stale.length }) + ' | ' +
             t('admin.reconciliation.uncredited', { count: uncredited.length });
+        if (review.length) text += ' | ' + t('admin.reconciliation.needsReview', { count: review.length });
+        summary.textContent = text;
     }
-    if (!stale.length && !uncredited.length) {
+    if (!stale.length && !uncredited.length && !confirmedUncredited.length && !review.length) {
         tbody.innerHTML = '<tr><td colspan="4" style="padding:14px;text-align:center;color:var(--text-muted);">' + t('admin.reconciliation.empty') + '</td></tr>';
         return;
     }
     const rows = [];
+    // PRECEDENCE: a recorded webhook failure is the most actionable evidence (it names
+    // the reason and both amounts), so those rows are listed first.
+    review.forEach(function (r) {
+        const amounts = (r.expectedAmountCrypto != null || r.confirmedAmountCrypto != null)
+            ? ' <span style="color:var(--text-muted);">' + esc(r.expectedAmountCrypto == null ? '?' : r.expectedAmountCrypto) +
+              ' -&gt; ' + esc(r.confirmedAmountCrypto == null ? '?' : r.confirmedAmountCrypto) + ' USDT</span>'
+            : '';
+        rows.push('<tr style="border-bottom:1px solid var(--border);">' +
+            '<td style="padding:6px;">' + esc(r.invoiceId || ('LOG #' + r.logId)) + '</td>' +
+            '<td style="padding:6px;">' + esc(r.userId == null ? '' : r.userId) + '</td>' +
+            '<td style="padding:6px;">' + esc(r.outcome || '') + amounts +
+            (r.providerTxHash ? '<br><span style="color:var(--text-muted);font-size:10px;">tx ' + esc(String(r.providerTxHash).slice(0, 18)) + '...</span>' : '') + '</td>' +
+            '<td style="padding:6px;">' + esc(formatTime(r.receivedAt)) + '<br><span style="color:#f59e0b;font-size:10px;">' +
+            esc(t('admin.reconciliation.reason', { reason: r.reason || (r.providerStatus ? 'provider ' + r.providerStatus : '') })) + '</span></td></tr>');
+    });
+    checks.forEach(function (c) {
+        if (c.diagnosis === 'paid_but_uncredited') {
+            rows.push('<tr style="border-bottom:1px solid var(--border);">' +
+                '<td style="padding:6px;">' + esc(c.invoiceId) + '</td>' +
+                '<td style="padding:6px;"></td>' +
+                '<td style="padding:6px;color:#22c55e;">' + esc(t('admin.reconciliation.providerPaid')) + '</td>' +
+                '<td style="padding:6px;"></td></tr>');
+        } else if (c.diagnosis === 'verify_failed') {
+            rows.push('<tr style="border-bottom:1px solid var(--border);">' +
+                '<td style="padding:6px;">' + esc(c.invoiceId) + '</td><td style="padding:6px;"></td>' +
+                '<td style="padding:6px;">' + esc(t('admin.reconciliation.providerPending', { status: '?' })) + '</td>' +
+                '<td style="padding:6px;"><span style="color:#f59e0b;font-size:10px;">' + esc(t('admin.reconciliation.reason', { reason: c.diagnosis })) + '</span></td></tr>');
+        } else if (c.diagnosis && c.diagnosis.indexOf('provider_') === 0) {
+            rows.push('<tr style="border-bottom:1px solid var(--border);">' +
+                '<td style="padding:6px;">' + esc(c.invoiceId) + '</td><td style="padding:6px;"></td>' +
+                '<td style="padding:6px;">' + esc(t('admin.reconciliation.providerPending', { status: String(c.providerStatus || '?') })) + '</td>' +
+                '<td style="padding:6px;"></td></tr>');
+        }
+    });
+    confirmedUncredited.forEach(function (i) {
+        rows.push('<tr style="border-bottom:1px solid var(--border);">' +
+            '<td style="padding:6px;">' + esc(i.invoiceId || ('INV #' + i.id)) + '</td>' +
+            '<td style="padding:6px;">' + esc(i.userId) + '</td>' +
+            '<td style="padding:6px;">$' + Number(i.amountUsd || 0).toFixed(2) + '</td>' +
+            '<td style="padding:6px;">' + esc(formatTime(i.createdAt)) + '<br><span style="color:#f59e0b;font-size:10px;">' +
+            esc(t('admin.reconciliation.reason', { reason: i.reason || '' })) + '</span></td></tr>');
+    });
     stale.forEach(function (i) {
         const exact = i.amountCrypto == null ? '' : ' <span style="color:var(--text-muted);">(' + Number(i.amountCrypto).toFixed(4) + ' USDT)</span>';
         rows.push('<tr style="border-bottom:1px solid var(--border);">' +

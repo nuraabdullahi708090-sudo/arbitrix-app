@@ -15,6 +15,10 @@ const { paymentService, PaymentService } = require('./services/PaymentService');
 const { nowPaymentsProvider } = require('./services/providers/nowpayments');
 const { paymentoProvider, PAYMENTO_STATUS } = require('./services/providers/paymento');
 const { q8qpayProvider, Q8QPAY_STATUS } = require('./services/providers/q8qpay');
+const {
+  createQ8qpaySettlement,
+  OUTCOMES: Q8QPAY_OUTCOMES
+} = require('./services/q8qpaySettlement');
 
 // KYC Verification Service
 const { KYCService, VERIFICATION_STATUS, VERIFICATION_LEVELS } = require('./services/KYCService');
@@ -5288,17 +5292,87 @@ app.post('/api/payment/check/:invoiceId', authMiddleware, async (req, res) => {
     const { invoiceId } = req.params;
     const userId = req.user.id;
 
-    const result = await paymentService.checkAndConfirmPayment(invoiceId, userId);
+    // Load the caller's OWN invoice. The owner filter is the authorization: a
+    // customer can never check (or settle) somebody else's payment.
+    const { data: ownInvoice, error: ownError } = await supabaseAdmin
+      .from('payment_invoices')
+      .select('*')
+      .eq('invoice_id', invoiceId)
+      .eq('user_id', userId)
+      .single();
 
-    res.json({
+    if (ownError || !ownInvoice) {
+      return res.status(404).json({ success: false, error: 'Invoice not found' });
+    }
+
+    if (ownInvoice.provider !== 'q8qpay') {
+      // Unchanged for every other provider (historical behaviour).
+      const result = await paymentService.checkAndConfirmPayment(invoiceId, userId);
+      return res.json({ success: true, ...result });
+    }
+
+    // q8qpay: this is a REAL check, not the historical stub. It asks the provider
+    // (authenticated GET /invoices/:id) for the invoice's own status and, when the
+    // provider confirms it, runs the SAME settlement pipeline the webhook uses -
+    // so a customer whose webhook was lost can be credited here, exactly once,
+    // through credit_payment_safe. Being confirmed by the provider is independent
+    // verification, so this is not an unverified automatic credit.
+    const ip = req.ip || req.connection.remoteAddress;
+    const limited = checkPaymentRateLimit(ip);
+    if (!limited.allowed) {
+      return res.status(429).json({ success: false, error: 'Too many requests', retryAfter: limited.retryAfter });
+    }
+
+    const settlement = await q8qpaySettlement.settle({
+      invoice: ownInvoice,
+      providerInvoiceId: ownInvoice.provider_invoice_ref || null,
+      webhookTxHash: null,
+      source: 'manual-check'
+    });
+
+    const outcome = settlement.outcome || Q8QPAY_OUTCOMES.CREDIT_FAILED;
+    const details = settlement.details || {};
+
+    // Durable trace of self-serve recoveries, same shape as the webhook record.
+    // No signature exists on this path, so signature_hash stays NULL.
+    await recordQ8qpayWebhookEvent({
+      payload: { source: 'manual-check', invoice_reference: invoiceId, invoice_id: ownInvoice.provider_invoice_ref || null },
+      signature: null,
+      sourceIp: ip,
+      relatedInvoiceId: ownInvoice.id,
+      outcome,
+      details: { ...details, invoiceId, userId }
+    });
+
+    const pendingReply = { status: 'pending', credited: false, message: 'Payment not yet detected' };
+    const USER_REPLY = {
+      credited: { status: 'confirmed', credited: true },
+      already_credited: { status: 'confirmed', credited: true, alreadyProcessed: true },
+      duplicate: { status: 'confirmed', credited: true, alreadyProcessed: true },
+      provider_not_confirmed: pendingReply,
+      missing_tx_hash: pendingReply,
+      verify_failed: pendingReply,
+      credit_failed: pendingReply
+    };
+    // A confirmed payment we cannot automatically tie to this invoice is reported
+    // as under review (which is true - a durable record exists), never as failed.
+    const reply = USER_REPLY[outcome.code] || {
+      status: 'under_review',
+      credited: false,
+      message: 'Your payment is being reviewed by our support team'
+    };
+
+    return res.json({
       success: true,
-      ...result
+      ...reply,
+      newBalance: details.newBalance,
+      isFirstDeposit: details.isFirstDeposit
     });
   } catch (error) {
     console.error('[API] Check payment error:', error);
-    res.status(400).json({ 
-      success: false, 
-      error: error.message || 'Failed to check payment' 
+    res.status(400).json({
+      success: false,
+      error: error.message || 'Failed to check payment'
     });
   }
 });
@@ -5862,8 +5936,129 @@ app.post('/api/webhook/paymento', express.raw({ type: 'application/json' }), asy
  * 5. Idempotent: the shared atomic credit_payment_safe() prevents double-credit
  * 6. Return 200 within 30s to acknowledge receipt (q8qpay retries on non-2xx)
  */
+// Q8QPay settlement pipeline (single implementation, shared with the customer's
+// manual "check my payment" action). See services/q8qpaySettlement.js.
+const q8qpaySettlement = createQ8qpaySettlement({ db: supabaseAdmin, provider: q8qpayProvider });
+
+/**
+ * Durable record of every q8qpay delivery that got past signature verification.
+ *
+ * WHY: before this, the dedicated q8qpay route wrote NOTHING to the database on
+ * any of its failure branches. A rejected-but-confirmed payment left no trace at
+ * all - no row, no log the admin UI could read - so "the customer paid and was
+ * never credited" could not be investigated after the fact. Every outcome now
+ * lands in `webhook_logs`, which already exists, is already read by
+ * /api/admin/payments/webhook-logs and is already surfaced by the admin
+ * reconciliation view.
+ *
+ * SECURITY / SAFETY:
+ *   - best-effort: a logging failure NEVER changes the webhook outcome and never
+ *     throws (the payment decision has already been taken by then);
+ *   - no secret is stored: only a SHA-256 of the signature header;
+ *   - `payload` is the signed provider body (already in our DB by design);
+ *   - `result` carries a machine-readable `outcome` + `needsReview` flag, so an
+ *     operator can find "confirmed but not credited" without reading prose.
+ *
+ * @param {object} entry
+ * @returns {Promise<number|null>} webhook_logs id, or null when it could not be written
+ */
+async function recordQ8qpayWebhookEvent(entry) {
+  try {
+    const {
+      payload, signature, sourceIp, relatedInvoiceId,
+      outcome, details
+    } = entry;
+
+    // Map the pipeline outcome onto the webhook_logs.status domain
+    // (received | processing | processed | failed | duplicate).
+    let status = 'failed';
+    if (outcome.code === 'credited') status = 'processed';
+    else if (outcome.code === 'already_credited' || outcome.code === 'duplicate') status = 'duplicate';
+    else if (outcome.needsReview) status = 'failed';
+
+    const signatureHash = signature
+      ? crypto.createHash('sha256').update(String(signature)).digest('hex')
+      : null;
+
+    const reference = (details && details.invoiceId) || (payload && (payload.invoice_reference || payload.reference)) || null;
+    const providerInvoiceId = (details && details.providerInvoiceId)
+      || (payload && payload.invoice_id) || null;
+
+    const result = {
+      outcome: outcome.code,
+      needsReview: outcome.needsReview === true,
+      transient: outcome.transient === true,
+      message: outcome.message,
+      httpStatus: outcome.httpStatus,
+      provider: 'q8qpay',
+      reference,
+      providerInvoiceId,
+      // What we expected vs what the provider confirmed - the two numbers an
+      // operator needs to adjudicate a mismatch without guessing.
+      expectedAmountCrypto: details && details.storedAmountCrypto != null ? details.storedAmountCrypto : null,
+      confirmedAmountCrypto: details && details.providerAmountUsdtExact != null ? details.providerAmountUsdtExact : null,
+      providerPayoutAddress: details && details.providerPayoutAddress ? details.providerPayoutAddress : null,
+      storedPayoutAddress: details && details.storedWalletAddress ? details.storedWalletAddress : null,
+      providerTxHash: details && details.providerTxHash ? details.providerTxHash : null,
+      providerStatus: details && details.providerStatus ? details.providerStatus : null,
+      reason: details && details.reason ? details.reason : null,
+      error: details && details.error ? details.error : null,
+      userId: details && details.userId != null ? details.userId : null,
+      source: details && details.source ? details.source : 'webhook'
+    };
+
+    const { data, error } = await supabaseAdmin
+      .from('webhook_logs')
+      .insert({
+        provider: 'q8qpay',
+        event_type: (payload && (payload.type || (payload.status ? `invoice.${payload.status}` : null))) || 'unknown',
+        payload: payload || {},
+        signature_hash: signatureHash,
+        idempotency_key: providerInvoiceId
+          ? `q8qpay:${providerInvoiceId}:${(payload && payload.status) || 'unknown'}:${(payload && (payload.tx_hash || payload.txHash)) || 'nohash'}`
+          : null,
+        status,
+        received_at: new Date().toISOString(),
+        processed_at: new Date().toISOString(),
+        result,
+        related_invoice_id: relatedInvoiceId || null,
+        source_ip: sourceIp && sourceIp !== 'unknown' ? sourceIp : null
+      })
+      .select('id')
+      .single();
+
+    if (error) {
+      console.error('[Q8QPay Webhook] Could not write the durable webhook record:', error.message || error);
+      return null;
+    }
+    return data ? data.id : null;
+  } catch (e) {
+    console.error('[Q8QPay Webhook] Durable webhook record threw:', (e && e.message) || e);
+    return null;
+  }
+}
+
+/**
+ * Q8QPay Webhook Handler
+ *
+ * SECURITY: HMAC-SHA256 signature over the body (raw bytes AND the provider's
+ * documented canonical JSON form - see Q8QPayProvider.verifyWebhook), then an
+ * authenticated re-verification of the invoice with q8qpay before anything is
+ * credited. The webhook body only LOCATES the invoice; it never decides a credit.
+ *
+ * ACKNOWLEDGEMENT POLICY (why not every branch answers 200):
+ *   200  the delivery is finished - credited, already credited, a status update,
+ *        or a permanent mismatch that is now durably recorded for a human;
+ *   401  missing/invalid signature (nothing is persisted: an unauthenticated
+ *        caller must not be able to write rows into our database);
+ *   400  unparsable body;
+ *   500  a retry can still succeed (provider not yet confirmed, provider lookup
+ *        failed, missing tx hash, the atomic credit failed).
+ * A 2xx is only returned for a failure AFTER the durable record exists, so a
+ * "successful" acknowledgement never means "we dropped it".
+ */
 app.post('/api/webhook/q8qpay', async (req, res) => {
-  const sourceIp = req.ip || req.connection.remoteAddress;
+  const sourceIp = req.ip || req.connection.remoteAddress || 'unknown';
   console.log(`[Q8QPay Webhook] Received from IP: ${sourceIp}`);
 
   try {
@@ -5877,8 +6072,9 @@ app.post('/api/webhook/q8qpay', async (req, res) => {
       return res.status(401).json({ error: 'Missing signature' });
     }
 
-    // Verify HMAC-SHA256 signature over the raw body bytes
-    const isValidSignature = await q8qpayProvider.verifyWebhook(rawBody, signature);
+    // Verify HMAC-SHA256 over the raw body bytes and over the canonical JSON the
+    // provider documents. An unauthenticated request is NOT persisted.
+    const isValidSignature = await q8qpayProvider.verifyWebhook(rawBody, signature, req.body);
     if (!isValidSignature) {
       console.error('[Q8QPay Webhook] CRITICAL: Invalid HMAC signature - possible spoofed callback!');
       return res.status(401).json({ error: 'Invalid signature' });
@@ -5886,39 +6082,60 @@ app.post('/api/webhook/q8qpay', async (req, res) => {
 
     console.log('[Q8QPay Webhook] HMAC signature verified');
 
-    // Use the already-parsed body (parsed by express.json from the same raw bytes)
-    const payload = req.body || JSON.parse(rawBody);
-    console.log('[Q8QPay Webhook] Payload:', JSON.stringify(payload));
+    const payload = req.body || parseWebhookBody(rawBody);
+    console.log('[Q8QPay Webhook] Payload:', JSON.stringify(payload).substring(0, 1000));
 
     const paymentData = q8qpayProvider.parsePaymentData(payload);
     const {
       invoiceId,             // our Kalderix reference (invoice_reference)
       providerInvoiceId,     // q8qpay UUID
-      walletAddress,
-      amount,
-      transactionHash,
       status,
-      assetCode,
       type
     } = paymentData;
 
     console.log(`[Q8QPay Webhook] Ref: ${invoiceId}, Q8QId: ${providerInvoiceId}, Status: ${status}, Type: ${type}`);
 
-    // Find our invoice by the Kalderix reference we passed as `reference`
-    const { data: invoice, error: invoiceError } = await supabaseAdmin
+    // Locate our invoice by the Kalderix reference we passed as `reference`.
+    // A read ERROR is not "not found": only a genuine empty result (PGRST116 /
+    // "no rows") means the reference is unknown. Conflating the two is how a
+    // database hiccup used to be acknowledged as a lost payment.
+    const lookup = await supabaseAdmin
       .from('payment_invoices')
       .select('*')
       .eq('invoice_id', invoiceId)
       .single();
 
-    if (invoiceError || !invoice) {
-      console.error(`[Q8QPay Webhook] Invoice not found for reference: ${invoiceId}`);
-      // Return 200 to stop retries for unknown invoices
-      return res.status(200).json({ error: 'Invoice not found' });
+    const invoice = lookup.data;
+    const lookupError = lookup.error;
+    const noRows = !invoice && (!lookupError
+      || lookupError.code === 'PGRST116'
+      || /0 rows|no rows|multiple \(0\) rows|json object requested/i.test(String(lookupError.message || '')));
+
+    if (!invoice) {
+      if (!noRows) {
+        console.error('[Q8QPay Webhook] Invoice lookup failed (database):', lookupError && lookupError.message);
+        // No durable row: we never established which invoice this is. 500 so the
+        // provider retries, and the server log carries the cause.
+        return res.status(500).json({ ok: false, error: 'processing_error' });
+      }
+
+      const outcome = Q8QPAY_OUTCOMES.UNKNOWN_INVOICE;
+      await recordQ8qpayWebhookEvent({
+        payload, signature, sourceIp, relatedInvoiceId: null,
+        outcome,
+        details: { invoiceId, providerInvoiceId, reason: 'no-invoice-with-this-reference' }
+      });
+      console.error(`[Q8QPay Webhook] No invoice for reference: ${invoiceId} - recorded for review`);
+      return res.status(outcome.httpStatus).json({ received: true, outcome: outcome.code });
     }
 
-    // Idempotency: already credited -> ack and stop
+    // Idempotency: already credited -> ack and stop (no provider call needed).
     if (invoice.credited) {
+      const outcome = Q8QPAY_OUTCOMES.ALREADY_CREDITED;
+      await recordQ8qpayWebhookEvent({
+        payload, signature, sourceIp, relatedInvoiceId: invoice.id,
+        outcome, details: { invoiceId: invoice.invoice_id, providerInvoiceId, userId: invoice.user_id }
+      });
       console.log(`[Q8QPay Webhook] Invoice ${invoiceId} already credited, skipping`);
       return res.status(200).json({ success: true, message: 'Already processed' });
     }
@@ -5933,129 +6150,71 @@ app.post('/api/webhook/q8qpay', async (req, res) => {
           updated_at: new Date().toISOString()
         })
         .eq('id', invoice.id);
+
+      await recordQ8qpayWebhookEvent({
+        payload, signature, sourceIp, relatedInvoiceId: invoice.id,
+        outcome: {
+          code: `status_${status || 'unknown'}`, httpStatus: 200, needsReview: false,
+          transient: false, message: `Status updated to ${status}`
+        },
+        details: { invoiceId: invoice.invoice_id, providerInvoiceId, userId: invoice.user_id }
+      });
+
       return res.status(200).json({ success: true, message: `Status updated to ${status}` });
     }
 
-    // CRITICAL: server-side re-verification via q8qpay API before crediting
+    // CRITICAL: server-side re-verification + validation + atomic credit.
+    // One implementation, shared with the customer-initiated check.
     console.log(`[Q8QPay Webhook] Re-verifying invoice ${providerInvoiceId} with q8qpay API...`);
-    const verifyResult = await q8qpayProvider.getInvoiceStatus(providerInvoiceId);
-
-    if (!verifyResult || verifyResult.status !== Q8QPAY_STATUS.CONFIRMED) {
-      console.error(`[Q8QPay Webhook] Re-verification: status is ${verifyResult?.status}, not confirmed`);
-      return res.status(200).json({ error: 'Verification mismatch' });
-    }
-
-    // === Validate invoice reference, asset, amount, and transaction info ===
-
-    // 1. Reference must match (the q8qpay UUID we stored == the one in the webhook/verify)
-    if (invoice.provider_invoice_ref && invoice.provider_invoice_ref !== verifyResult.providerInvoiceId) {
-      console.error(`[Q8QPay Webhook] Invoice ref mismatch: db=${invoice.provider_invoice_ref} vs q8q=${verifyResult.providerInvoiceId}`);
-      return res.status(200).json({ error: 'Reference mismatch' });
-    }
-
-    // 2. Asset must be USDT_TRC20
-    if (verifyResult.assetCode !== 'USDT_TRC20') {
-      console.error(`[Q8QPay Webhook] Asset mismatch: ${verifyResult.assetCode} (expected USDT_TRC20)`);
-      return res.status(200).json({ error: 'Asset mismatch' });
-    }
-
-    // 3. Amount must match exactly. Q8QPay may adjust amountUsdtExact upward
-    //    when the requested amount is already pending on the same wallet
-    //    (address-reuse disambiguation, NOT a fee). The customer must pay
-    //    amountUsdtExact exactly, so we compare the confirmed q8qpay amount
-    //    against the authoritative amount_crypto we stored at invoice creation
-    //    (== q8qpay amountUsdtExact), NOT amount_usd (the user's requested USD,
-    //    which is what gets credited to the Kalderix balance).
-    if (invoice.amount_crypto == null) {
-      console.error(`[Q8QPay Webhook] Missing amount_crypto on invoice ${invoiceId} - cannot verify paid amount (fail-closed)`);
-      return res.status(200).json({ error: 'Missing stored amount' });
-    }
-    const expectedAmount = Number(Number(invoice.amount_crypto).toFixed(4));
-    const paidAmount = Number(Number(verifyResult.amountUsdtExact).toFixed(4));
-    if (paidAmount !== expectedAmount) {
-      console.error(`[Q8QPay Webhook] Amount mismatch: expected ${expectedAmount}, paid ${paidAmount}`);
-      return res.status(200).json({ error: 'Amount mismatch' });
-    }
-
-    // 4. Payout address must match the one we displayed to the customer
-    if (invoice.wallet_address && verifyResult.payoutAddress &&
-        invoice.wallet_address !== verifyResult.payoutAddress) {
-      console.error(`[Q8QPay Webhook] Payout address mismatch`);
-      return res.status(200).json({ error: 'Address mismatch' });
-    }
-
-    // 5. Transaction hash (audit + cross-invoice idempotency key).
-    //    Resolved via the provider helper (see Q8QPayProvider.resolveTransactionHash)
-    //    so the security invariant — a fake/test hash can NEVER be produced for a
-    //    live payment — lives in one auditable, unit-tested place.
-    //
-    //    Sources, in priority order:
-    //      (1) tx hash from the webhook payload (payload.tx_hash || payload.txHash)
-    //      (2) tx hash from q8qpay server-side re-verification (data.tx_hash || data.txHash)
-    //      (3) SANDBOX-ONLY fallback `q8qpay_sandbox_<providerInvoiceId>`, fired ONLY
-    //          when Q8QPAY_SANDBOX==='true' AND the API key is a `test_` key AND q8qpay
-    //          re-verification flags the invoice as a test invoice. A `live_` key can
-    //          never satisfy the test_ condition, so a hashless live confirmed webhook
-    //          resolves to null and is rejected below.
-    const txHash = q8qpayProvider.resolveTransactionHash({
-      webhookTxHash: transactionHash,
-      verifyTxHash: verifyResult.tx_hash,
-      verifyIsTest: verifyResult && verifyResult.isTest === true,
-      providerInvoiceId
-    });
-    if (!txHash) {
-      console.error(`[Q8QPay Webhook] No transaction hash provided for confirmed payment`);
-      return res.status(200).json({ error: 'Missing transaction hash' });
-    }
-
-    console.log(`[Q8QPay Webhook] All checks passed. Crediting user ${invoice.user_id} $${invoice.amount_usd} (tx: ${txHash.substring(0, 16)}...)`);
-
-    // Store audit fields (tx hash, q8q invoice id) BEFORE crediting so they are
-    // preserved even if a concurrent webhook wins the credit race.
-    await supabaseAdmin
-      .from('payment_invoices')
-      .update({
-        provider_tx_hash: txHash,
-        provider_invoice_ref: providerInvoiceId,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', invoice.id);
-
-    // Credit atomically via the SHARED secure function (same mechanism as Paymento)
-    const creditResult = await supabaseAdmin.rpc('credit_payment_safe', {
-      p_invoice_id: invoice.id,
-      p_user_id: invoice.user_id,
-      p_amount_usd: invoice.amount_usd,
-      p_transaction_hash: txHash,
-      p_provider_invoice_id: providerInvoiceId,
-      p_provider_name: 'q8qpay'
+    const settlement = await q8qpaySettlement.settle({
+      invoice,
+      providerInvoiceId: providerInvoiceId || invoice.provider_invoice_ref || null,
+      webhookTxHash: paymentData.transactionHash || null,
+      source: 'webhook'
     });
 
-    if (creditResult.error) {
-      console.error('[Q8QPay Webhook] Credit failed:', creditResult.error.message);
-      return res.status(500).json({ ok: false, error: 'processing_error' });
+    const outcome = settlement.outcome || Q8QPAY_OUTCOMES.CREDIT_FAILED;
+    const details = settlement.details || {};
+    const logId = await recordQ8qpayWebhookEvent({
+      payload, signature, sourceIp, relatedInvoiceId: invoice.id,
+      outcome,
+      details: { ...details, invoiceId: invoice.invoice_id, userId: invoice.user_id }
+    });
+
+    if (outcome.code === 'credited') {
+      console.log(`[Q8QPay Webhook] SUCCESS! User ${invoice.user_id} credited $${invoice.amount_usd} (log ${logId})`);
+      console.log(`[Q8QPay Webhook] New balance: $${details.newBalance}, First deposit: ${details.isFirstDeposit}`);
+      return res.status(200).json({
+        success: true,
+        message: 'Payment processed',
+        credited: true,
+        newBalance: details.newBalance,
+        isFirstDeposit: details.isFirstDeposit
+      });
     }
 
-    const creditData = creditResult.data;
-    if (creditData.duplicate) {
-      console.log(`[Q8QPay Webhook] Duplicate payment detected for ${invoiceId} - no double credit`);
-      return res.status(200).json({ success: true, message: 'Duplicate payment (not re-credited)' });
+    if (outcome.code === 'already_credited' || outcome.code === 'duplicate') {
+      console.log(`[Q8QPay Webhook] ${outcome.message} (ref ${invoiceId})`);
+      return res.status(200).json({ success: true, message: outcome.message });
     }
 
-    if (!creditData.success) {
-      console.error(`[Q8QPay Webhook] Credit function returned error: ${creditData.error}`);
-      return res.status(500).json({ ok: false, error: 'processing_error' });
+    // Everything else needs a human. `needsReview` rows are visible through
+    // /api/admin/payments/webhook-logs and /api/admin/deposits/reconciliation.
+    if (outcome.needsReview) {
+      console.error(
+        `[Q8QPay Webhook] PAYMENT NEEDS REVIEW (${outcome.code}) ref=${invoiceId} ` +
+        `q8q=${providerInvoiceId} expected=${details.storedAmountCrypto} ` +
+        `confirmed=${details.providerAmountUsdtExact} providerStatus=${details.providerStatus} ` +
+        `log=${logId}`
+      );
+    } else {
+      console.log(`[Q8QPay Webhook] Outcome ${outcome.code} for ${invoiceId}`);
     }
 
-    console.log(`[Q8QPay Webhook] SUCCESS! User ${invoice.user_id} credited $${invoice.amount_usd}`);
-    console.log(`[Q8QPay Webhook] New balance: $${creditData.new_balance}, First deposit: ${creditData.is_first_deposit}`);
-
-    res.status(200).json({
-      success: true,
-      message: 'Payment processed',
-      credited: true,
-      newBalance: creditData.new_balance,
-      isFirstDeposit: creditData.is_first_deposit
+    return res.status(outcome.httpStatus).json({
+      received: true,
+      outcome: outcome.code,
+      message: outcome.message
     });
 
   } catch (error) {
@@ -12837,43 +12996,91 @@ app.post('/api/live/activate', authMiddleware, async (req, res) => {
 //   2. a legacy deposit row marked confirmed but never marked credited.
 // It performs no writes and credits nothing: reconciliation stays a human act.
 app.get('/api/admin/deposits/reconciliation', authMiddleware, adminMiddleware, async (req, res) => {
+  // READ-ONLY. Nothing here credits, mutates or "fixes" anything: every array is
+  // evidence for a human decision, and a manual credit still goes through the
+  // audited admin route after the payment is verified with the provider.
   try {
-    const hours = Math.min(Math.max(parseInt(req.query.hours, 10) || 2, 1), 168);
+    const hours = Math.min(Math.max(parseInt(req.query.hours, 10) || 24, 1), 720);
     const cutoff = new Date(Date.now() - hours * 3600 * 1000).toISOString();
+    // Provider re-check is OPT-IN so an admin page load stays fast and does not
+    // hammer the provider on every refresh.
+    const wantVerify = String(req.query.verify || '') === '1';
+    const verifyLimit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 50);
 
-    const [invoices, deposits] = await Promise.all([
+    const [unsettled, uncreditedInvoices, uncreditedDeposits, reviewLogs] = await Promise.all([
       supabaseAdmin
         .from('payment_invoices')
-        .select('id, user_id, amount_usd, amount_crypto, currency, status, credited, created_at, expires_at')
-        .eq('status', 'pending')
+        .select('id, invoice_id, user_id, amount_usd, amount_crypto, currency, network, status, credited, provider, provider_invoice_ref, provider_tx_hash, wallet_address, created_at, expires_at')
+        .in('status', ['pending', 'expired'])
+        .or('credited.is.null,credited.eq.false')
         .lt('created_at', cutoff)
+        .order('created_at', { ascending: true })
+        .limit(200),
+      supabaseAdmin
+        .from('payment_invoices')
+        .select('id, invoice_id, user_id, amount_usd, amount_crypto, status, credited, provider, provider_invoice_ref, provider_tx_hash, created_at')
+        .eq('status', 'confirmed')
+        .or('credited.is.null,credited.eq.false')
         .limit(200),
       supabaseAdmin
         .from('deposits')
         .select('id, user_id, amount, status, credited, created_at')
         .eq('status', 'confirmed')
         .or('credited.is.null,credited.eq.false')
+        .limit(200),
+      // Every q8qpay delivery we recorded as failed / needing review. This is the
+      // list that was previously EMPTY no matter what happened, because the
+      // dedicated webhook route wrote nothing to the database.
+      supabaseAdmin
+        .from('webhook_logs')
+        .select('id, provider, event_type, status, received_at, result, related_invoice_id')
+        .eq('provider', 'q8qpay')
+        .eq('status', 'failed')
+        .gte('received_at', cutoff)
+        .order('received_at', { ascending: false })
         .limit(200)
     ]);
 
-    const stalePending = (invoices.error ? [] : (invoices.data || [])).map(function (i) {
+    const stalePending = (unsettled.error ? [] : (unsettled.data || [])).map(function (i) {
       return {
         id: i.id,
+        invoiceId: i.invoice_id,
         userId: i.user_id,
         amountUsd: Number(i.amount_usd),
         // The EXACT on-chain amount the customer was asked to send. A mismatch
         // here is the most likely cause of a "I paid and got nothing" ticket.
         amountCrypto: i.amount_crypto != null ? Number(i.amount_crypto) : null,
         currency: i.currency,
+        network: i.network,
         status: i.status,
         credited: !!i.credited,
+        provider: i.provider,
+        providerInvoiceId: i.provider_invoice_ref || null,
+        providerTxHash: i.provider_tx_hash || null,
+        payoutAddress: i.wallet_address || null,
         createdAt: i.created_at,
         expiresAt: i.expires_at,
         ageHours: Math.round((Date.now() - Date.parse(i.created_at)) / 3600000)
       };
     });
 
-    const uncreditedConfirmed = (deposits.error ? [] : (deposits.data || [])).map(function (d) {
+    const confirmedButUncredited = (uncreditedInvoices.error ? [] : (uncreditedInvoices.data || [])).map(function (i) {
+      return {
+        id: i.id,
+        invoiceId: i.invoice_id,
+        userId: i.user_id,
+        amountUsd: Number(i.amount_usd),
+        amountCrypto: i.amount_crypto != null ? Number(i.amount_crypto) : null,
+        provider: i.provider,
+        providerInvoiceId: i.provider_invoice_ref || null,
+        providerTxHash: i.provider_tx_hash || null,
+        createdAt: i.created_at,
+        // Our own row says confirmed; the wallet was never credited. Needs a human.
+        reason: 'confirmed-but-not-credited'
+      };
+    });
+
+    const uncreditedConfirmed = (uncreditedDeposits.error ? [] : (uncreditedDeposits.data || [])).map(function (d) {
       return {
         id: d.id,
         userId: d.user_id,
@@ -12884,15 +13091,104 @@ app.get('/api/admin/deposits/reconciliation', authMiddleware, adminMiddleware, a
       };
     });
 
+    const needsReview = (reviewLogs.error ? [] : (reviewLogs.data || [])).map(function (l) {
+      const r = l.result || {};
+      return {
+        logId: l.id,
+        receivedAt: l.received_at,
+        invoiceId: r.reference || null,
+        providerInvoiceId: r.providerInvoiceId || null,
+        outcome: r.outcome || null,
+        message: r.message || null,
+        expectedAmountCrypto: r.expectedAmountCrypto != null ? r.expectedAmountCrypto : null,
+        confirmedAmountCrypto: r.confirmedAmountCrypto != null ? r.confirmedAmountCrypto : null,
+        providerStatus: r.providerStatus || null,
+        providerTxHash: r.providerTxHash || null,
+        providerPayoutAddress: r.providerPayoutAddress || null,
+        storedPayoutAddress: r.storedPayoutAddress || null,
+        userId: r.userId != null ? r.userId : null,
+        relatedInvoiceId: l.related_invoice_id || null,
+        source: r.source || 'webhook'
+      };
+    });
+
+    // OPTIONAL, READ-ONLY: ask the provider what IT thinks of each unsettled
+    // q8qpay invoice. This is the only way to tell "customer never paid" from
+    // "customer paid and no webhook arrived" - and q8qpay documents that a
+    // transfer which does not match the exact amount is NEVER confirmed and
+    // NEVER webhooked, so this check is the detection path for that case.
+    const providerChecks = [];
+    if (wantVerify) {
+      const targets = stalePending
+        .filter(function (i) { return i.provider === 'q8qpay' && i.providerInvoiceId; })
+        .slice(0, verifyLimit);
+
+      for (const target of targets) {
+        let check = {
+          invoiceId: target.invoiceId,
+          providerInvoiceId: target.providerInvoiceId,
+          expectedAmountCrypto: target.amountCrypto,
+          payoutAddress: target.payoutAddress
+        };
+        try {
+          const status = await q8qpayProvider.getInvoiceStatus(target.providerInvoiceId);
+          const confirmed = status && status.status === 'confirmed';
+          const amountMatches = confirmed
+            && target.amountCrypto != null
+            && status.amountUsdtExact != null
+            && Number(Number(target.amountCrypto).toFixed(4)) === Number(Number(status.amountUsdtExact).toFixed(4));
+          let diagnosis = 'provider_' + (status && status.status ? status.status : 'unknown');
+          if (confirmed) {
+            if (status.assetCode && status.assetCode !== 'USDT_TRC20') diagnosis = 'confirmed_other_asset';
+            else if (target.amountCrypto == null) diagnosis = 'confirmed_amount_unknown';
+            else diagnosis = amountMatches ? 'paid_but_uncredited' : 'confirmed_amount_mismatch';
+          }
+          check = Object.assign(check, {
+            ok: true,
+            providerStatus: status && status.status ? status.status : null,
+            providerAmountCrypto: status && status.amountUsdtExact != null ? String(status.amountUsdtExact) : null,
+            providerTxHash: status && status.tx_hash ? status.tx_hash : null,
+            providerAssetCode: status && status.assetCode ? status.assetCode : null,
+            providerIsTest: !!(status && status.isTest === true),
+            amountMatches,
+            diagnosis
+          });
+        } catch (error) {
+          check = Object.assign(check, {
+            ok: false,
+            diagnosis: 'verify_failed',
+            error: String((error && error.message) || error).slice(0, 200)
+          });
+        }
+        providerChecks.push(check);
+      }
+    }
+
+    const providerConfirmedUncredited = providerChecks.filter(function (c) {
+      return c.diagnosis === 'paid_but_uncredited';
+    });
+
     res.json({
       success: true,
       windowHours: hours,
-      counts: { stalePending: stalePending.length, uncreditedConfirmed: uncreditedConfirmed.length },
+      verified: wantVerify,
+      verifyLimit,
+      counts: {
+        stalePending: stalePending.length,
+        confirmedButUncredited: confirmedButUncredited.length,
+        uncreditedConfirmedDeposits: uncreditedConfirmed.length,
+        needsReview: needsReview.length,
+        providerConfirmedUncredited: providerChecks.length ? providerConfirmedUncredited.length : null
+      },
       stalePending: stalePending,
+      confirmedButUncredited: confirmedButUncredited,
       uncreditedConfirmed: uncreditedConfirmed,
-      note: 'Read-only. Nothing here is credited automatically: a mismatched or stale payment must be verified against the chain and an invoice reference before any manual credit.'
+      needsReview: needsReview,
+      providerChecks: providerChecks,
+      note: 'Read-only. Nothing here is credited automatically: a mismatched or stale payment must be verified against the chain and an invoice reference before any manual credit. Add ?verify=1 to ask q8qpay for the live status of the unsettled q8qpay invoices (read-only provider GET).'
     });
   } catch (e) {
+    console.error('[Admin] Reconciliation error:', (e && e.message) || e);
     res.status(500).json({ success: false, error: 'reconciliation_unavailable' });
   }
 });
