@@ -12,11 +12,28 @@
 --        makes the static "we received your message" notice idempotent even when
 --        two browsers post the first message at the same moment.
 --
--- Rollback (does not touch data):
+-- Rollback (does not touch data). ORDER MATTERS.
+--
+--   The trigger function reads NEW.via, and a PL/pgSQL body is not dependency
+--   tracked, so dropping the column while the trigger exists SUCCEEDS silently
+--   and then every insert into support_messages fails with
+--       ERROR: record "new" has no field "via"
+--   i.e. support would stop storing customer messages. Drop the trigger and its
+--   function FIRST, then the indexes/constraint, then the columns:
+--
+--   DROP TRIGGER IF EXISTS support_messages_default_via_trg ON public.support_messages;
+--   DROP FUNCTION IF EXISTS public.support_messages_default_via();
 --   DROP INDEX IF EXISTS public.support_messages_thread_idx;
+--   DROP INDEX IF EXISTS public.support_conversations_status_idx;
+--   DROP INDEX IF EXISTS public.support_conversations_assignee_idx;
 --   ALTER TABLE public.support_messages DROP CONSTRAINT IF EXISTS support_messages_via_check;
 --   ALTER TABLE public.support_messages DROP COLUMN IF EXISTS via;
 --   ALTER TABLE public.support_conversations DROP COLUMN IF EXISTS acknowledged_at;
+--
+--   Verified on PostgreSQL 17.12: that sequence leaves a working table (inserts
+--   succeed, no trigger, no columns); the earlier sequence of just the last four
+--   statements left every insert failing. Re-applying this file after either
+--   sequence is safe (it restores the objects and re-derives the backfill).
 
 -- ------------------------------------------------------------------ columns
 ALTER TABLE public.support_messages

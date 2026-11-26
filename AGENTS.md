@@ -10829,3 +10829,33 @@ TESTS (all rewritten or added for the human-only contract; nothing was weakened 
 - npm test = 4233 pass / 0 fail / 1 skipped (Chromium-dependent). node --check clean.
 
 NOT DONE: no merge, no deploy, no migration applied, no production configuration changed.
+
+
+## PR #220 preflight - migration 061 rollback corrected, validated on real PostgreSQL (2026-11-26)
+
+- The rollback documented in 061_human_only_support.sql was DEFECTIVE: it dropped
+  support_messages.via without dropping support_messages_default_via_trg. A plpgsql body is
+  not dependency-tracked, so the DROP COLUMN succeeds silently and then EVERY insert into
+  support_messages fails with `record "new" has no field "via"` - i.e. support stops storing
+  customer messages after a "successful" rollback. The header now documents the dependency
+  order (DROP TRIGGER, DROP FUNCTION, then indexes/constraint/columns) plus the reason.
+- Whole-file proof that the fix is documentation-only: `git diff -U0` has ZERO non-comment
+  changed lines.
+- VALIDATED ON A REAL PostgreSQL 17.12 (Debian trixie binaries unpacked into /tmp; no Docker,
+  no root, no production credentials - the cluster is disposable and was never a Supabase DB):
+  * 059 -> seed existing history -> 061 applies cleanly; all objects present (via TEXT,
+    acknowledged_at TIMESTAMPTZ, CHECK incl. 'ai', BEFORE INSERT ROW trigger, 3 indexes).
+  * backfill maps customer->customer, agent->admin, system->system, ai->ai; bodies are
+    md5-identical to the pre-migration fingerprint; conversations preserved; no ack invented.
+  * re-apply is a no-op (only "already exists, skipping" notices, exit 0).
+  * trigger fills via on insert, an explicit 'telegram' wins, a bogus value is rejected.
+  * the OLD rollback reproduces the break (insert -> ERROR 42703 in the trigger function);
+    the CORRECTED rollback leaves a working table; re-applying 061 restores everything and
+    the backfill re-derives via.
+- .env.example NATIVE_SUPPORT_ENABLED now states that BOTH 059 and 061 are required, and that
+  061 must be applied before the build reaches the host (agent replies write via).
+- Deployment order is therefore: apply 061 -> merge PR #220 (Render auto-deploys) -> verify.
+  Applying 061 first is safe for the currently deployed code, which references neither column.
+- Single-admin Telegram preflight (manual, cannot be read from this environment): unset or
+  'admins' TELEGRAM_NOTIFY_TARGET, UNSET TELEGRAM_SUPPORT_CHAT_ID, the admin's user id in
+  TELEGRAM_ADMIN_IDS, the admin has /start'ed the bot, NATIVE_SUPPORT_ENABLED=true.
