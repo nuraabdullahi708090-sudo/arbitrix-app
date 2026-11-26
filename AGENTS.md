@@ -11085,3 +11085,123 @@ NOT DONE: no merge, no deploy, no migration applied, no production configuration
   `body.className` desync, L9 hand-over refusal, L10 the widget UI contract).
 - Encoding: 0 pre-existing non-ASCII code points lost or added, 0 U+FFFD.
 - No migration, no server.js/financial change, no production configuration touched.
+
+
+## PR #222 MERGED + DEPLOYED - human-only support messenger (2026-11-26)
+- Merge commit 022b3aa16e5fe7b5d820c77f889b0bf71893e287 ("Merge pull request #222 from
+  nuraabdullahi708090-sudo/fix/support-reply-delivery-and-widget-ui"), base bcb320c (#221).
+  Merged on explicit instruction after the audit verdict (commit 8901a61, parent 1378c37).
+  PR was marked ready first; merged with a MERGE COMMIT (not squash/rebase), no force-push.
+- CI on main for 022b3aa: "CI" completed/success. Pre-merge gates on 8901a61: `npm test`
+  4310 pass / 0 fail + static checks pass (79 files `node --check`, workflow validation,
+  13/13 inline blocks).
+- RENDER auto-deployed on push: the previous build was still served for ~45 s, the new
+  build was live at poll 4. The served `public/index.html` is BYTE-IDENTICAL to the merged
+  file (sha256 a8f6605e1aa53740bea0dcd7fbb757f030c560f708e4ab2d02391dd656eae44f,
+  1,940,427 bytes) and `/native-support.js` is byte-identical too
+  (sha256 b0907e037b0cb9ccb3573b4e02b1c246e05acfc72096bd58c187c9116058e81c).
+- Served markers: `data-support-surface="pending"` x3, `resetLegacySupportChat` x2,
+  `legacySupportEpoch` x5, `if (NativeSupport.open() !== false) return true;` x1, and the
+  open() refusal in the served widget (`state.surface !== 'native') return false;`).
+  The removed marker is gone as a SELECTOR (0 `body.ns-enabled .`/`{`); the single
+  remaining mention is the explanatory CSS comment at line 5310.
+- Production smoke (headless Chromium, https://arbitrix.pro, anonymous): controller present,
+  surface=legacy, exactly ONE legacy widget + launcher, messenger node count 0, panel closed,
+  body carries no `ns-enabled` class, 0 px horizontal overflow, 0 page errors -> PASS.
+  (/api/health 200; /, /partners, /how-it-works, /deposit-tutorials, /reset-password.html 200.)
+- OPERATIONAL PREREQUISITE (unchanged, not verifiable from this environment): migration 061
+  (`support_messages.via`, `support_conversations.acknowledged_at`) must be applied - it
+  shipped with PR #220, and agent replies write `via`. No migration was applied and no
+  environment variable was changed by this merge.
+- This deployment note is deliberately LEFT UNCOMMITTED so recording it does not trigger a
+  second Render rebuild (the working tree shows AGENTS.md as modified - documentation only).
+
+
+## Support launcher + unread indicator (2026-11-26, branch feat/support-launcher-unread)
+- Follow-up to the human-only support widget. The closed support affordance was a
+  wide blue pill labelled "Kalderix Support" that took a chunk of the dashboard
+  and had no way to signal a reply. It is now a compact circular green button with
+  an unread badge. Frontend only: `public/index.html` (CSS) + `public/native-support.js`
+  + tests. NO server.js, services, migration, DB, credential or money path touched.
+
+### Launcher (closed state)
+- 56px circle, `border-radius:50%`, gradient #17D78D -> #0ECB81, white FontAwesome
+  `fa-comments` glyph (aria-hidden), soft shadow, hover/active/focus-visible states.
+  The permanent label is GONE: the accessible name (`aria-label` = `ns.launcher`)
+  carries the words and the count (`ns.unreadLabel` -> "... , 3 unread messages").
+- Anchored `bottom:calc(20px + env(safe-area-inset-bottom))` on desktop and 18px on
+  phones - deliberately LOW, i.e. BELOW the toast band (`.toast` is bottom:80px and
+  ~56px tall). A higher anchor put the button under a toast and the toast's own
+  close button then won the tap (the committed browser harness caught it:
+  `launcher hit-test :: blocked-by:toast-close`). Do not move it back up without
+  re-measuring that collision.
+- `html[dir="rtl"]` mirrors it to the bottom-LEFT (desktop 16px / phone 14px) and
+  mirrors the desktop panel (`left:20px`). The phone sheet is inset on both sides,
+  so only the launcher needs the flip.
+- Steps aside (`display:none`) while a dialog owns the screen
+  (`body:has(.modal-overlay.open)`, `body:has(.deposit-modal.open)` - the same rule
+  `.support-widget` already had; without it the launcher floated over the
+  onboarding CTA at 320px and ate the tap) and while the one-time PWA install
+  prompt is up (`body:has(#pwaInstallPrompt:not(.hidden))`, full width at the
+  bottom on a phone). The consent banner still lifts it to `bottom:250px`.
+
+### Unread badge
+- Markup: a `<span class="ns-badge">` child, `position:absolute; top/right:-3px`,
+  ringed in the page background, `pointer-events:none`, so the launcher NEVER
+  grows (56x56 with or without a badge). Red #E5484D (the app's alert colour).
+  Capped at `9+` (a wider number distorts the circle); the spoken count is exact.
+- SOURCE OF TRUTH: the server's per-conversation `unread_for_customer` from
+  `GET /api/support/conversations`. The widget never derives unread from rendered
+  rows, so a customer's own message can never badge.
+- COUNTING RULE: only conversations the panel can actually DISPLAY (status !==
+  'resolved'). A resolved thread's counter would otherwise raise a badge that
+  opening the chat can never clear - and clearing it would mean marking a thread
+  read that was never retrieved, which the receipt rule forbids.
+- READ RECEIPT: `markRead()` now requires `state.open` and is issued only AFTER a
+  successful `refresh()` rendered the rows (`if (state.open && (rows.length ||
+  state.unread > 0))`). A failed retrieval therefore leaves the badge alone and
+  sends no receipt; a background poll can never clear an unseen reply.
+- CLOSED-STATE WATCHER: `startBadgeWatcher()` polls the SAME conversation-list
+  endpoint every 25s, only while the surface is native, the panel is CLOSED and
+  the tab is visible. One timer (`timers()` exposes `{poll, badge}` so "no
+  duplicate loops" is observable), stopped on open/hide/reset/logout and resumed on
+  close, and `visibilitychange` refreshes once immediately when the tab returns.
+- ACCOUNT SWITCH: `sync()` now computes `accountChanged` and calls
+  `refreshBadge(accountChanged)`; the 5s refresh rate-limit belongs to the previous
+  account, so without the force flag the new account showed no count until the next
+  tick (found by the browser harness, pinned by a test).
+- `setUnread(0)` writes an EMPTY string rather than "0", so a hidden badge cannot
+  leak a stale zero into the accessibility tree or a layout measurement.
+
+### Panel polish (phones)
+- `.ns-panel` phone height 72vh/560px -> `min(68vh,540px)`, `max-height:calc(100vh -
+  20px - env(safe-area-inset-bottom))`, `bottom:calc(8px + safe-area-inset-bottom)`,
+  transcript padding/gap tightened, `min-height:48px` header, composer padding
+  includes the safe area and its textarea `min-height:42px`. Desktop geometry is
+  unchanged (`min(392px,100vw-32px)` x `min(560px,100vh-40px)`).
+
+### Verification
+- `tests/support_launcher_unread.test.js` (23 tests) runs the REAL widget in a vm
+  with controllable timers: icon-only markup + accessible name, 1/3/9/12 counts,
+  the `9+` cap with an exact spoken count, resolved-thread exclusion, own messages
+  never badging, closed-state watcher start/stop/single-instance/hidden-tab,
+  receipt-only-after-success, receipt-only-when-open, account switch inside the
+  rate-limit window, dialog/PWA/orphan CSS rules, compact phone panel, and no
+  "Talk to a human".
+- Repository-wide: `npm test` = 4333 pass / 0 fail (4310 baseline + 23).
+- Browser harness `/workspace/harness/unread.js` (puppeteer-core + /usr/bin/chromium,
+  stateful fake support API, real page) = **82/82** across 320/390/1280 x en/ar:
+  56px green circle with a rendered glyph, no permanent text, badge on an incoming
+  reply (incl. one real 25s watcher tick with no interaction), `9+` cap, opening
+  hides the launcher and clears the badge with exactly one receipt, a failed
+  retrieval leaves the badge and sends none, replies while open appear without a
+  badge, a refresh keeps the unread state and never marks read, a toast in the
+  corner does not steal the tap, the install prompt owns the corner then the
+  launcher returns, the phone panel is <=68% of the viewport with the composer on
+  screen and a 44px close target, Arabic mirrors to the bottom-left, and repeated
+  syncs never duplicate nodes or loops.
+- NOTE: `tests/browser/native-support/browser.js` is STALE since the human-only
+  redesign (it still drives `.ns-cats`, an AI reply and the `/human` link) and is
+  not referenced by any test, so it is not part of CI. It did surface the
+  toast/launcher collision above before being overtaken by missing chooser steps.
+  Rewriting it is a separate job.

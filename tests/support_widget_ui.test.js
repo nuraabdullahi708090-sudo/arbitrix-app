@@ -228,10 +228,13 @@ test('A1. the panel is a compact messenger capped by the viewport, not a full sc
         'desktop is a proportionate floating panel, not a stretched sheet');
     assert.match(CSS, /height:min\(560px,calc\(100vh - 40px\)\)/, 'height is capped against the viewport');
     assert.match(CSS, /max-height:calc\(100vh - 40px\)/, 'and can never grow past it');
-    // Phones: 72% of the viewport, inset, and dvh where the browser supports it so
-    // the URL bar / keyboard cannot swallow the composer.
-    assert.match(CSS, /@media \(max-width:640px\)\{[\s\S]*?\.ns-panel\{[^}]*height:min\(72vh,560px\)/);
-    assert.match(CSS, /@supports \(height:100dvh\)\{[\s\S]*?height:min\(72dvh,560px\)/);
+    // Phones: 68% of the viewport and a 540px ceiling - tighter than the desktop
+    // cap, inset from the safe area, and dvh where the browser supports it so the
+    // URL bar / keyboard cannot swallow the composer.
+    assert.match(CSS, /@media \(max-width:640px\)\{[\s\S]*?\.ns-panel\{[^}]*height:min\(68vh,540px\)/);
+    assert.match(CSS, /@supports \(height:100dvh\)\{[\s\S]*?height:min\(68dvh,540px\)/);
+    assert.match(CSS, /@media \(max-width:640px\)\{[\s\S]*?\.ns-panel\{[^}]*bottom:calc\(8px \+ env\(safe-area-inset-bottom/,
+        'the phone sheet is lifted off the home indicator');
     assert.doesNotMatch(CSS, /\.ns-panel\{[^}]*height:100vh/, 'never a full-height sheet');
     assert.doesNotMatch(CSS, /\.ns-panel\{[^}]*\b100vw\b[^}]*height:100vh/);
 });
