@@ -63,7 +63,9 @@
 
   function renderChooser() {
     body.innerHTML = '';
-    body.appendChild(el('div', 'ns-note', tt('ns.welcome')));
+    // The greeting belongs to the transcript, not the chooser: showing it here AND
+    // as start()'s first system bubble made the assistant look like it was
+    // restarting the moment the customer picked a topic.
     body.appendChild(el('div', 'ns-note', tt('ns.catQ')));
     var grid = el('div', 'ns-cats');
     ['deposit', 'withdrawal', 'trading', 'account', 'general'].forEach(function (cat) {
