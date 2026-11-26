@@ -26719,10 +26719,15 @@ try {
  * knowledge base answers it. This bridges the existing widget to the existing
  * native support API instead of duplicating an answer engine.
  *
- * Returns null (never throws) for every degraded case - no session, the native
- * messenger not enabled (404), rate limited, server error, network failure - so
- * the caller keeps the previous keyword behaviour and no customer is left worse
- * off than before.
+ * Returns, never throws:
+ *   { text }        the brain answered (approved knowledge, localized)
+ *   { human: true } a person owns this thread (or the turn was already handled),
+ *                   so the assistant must NOT answer - talking over a human agent
+ *                   is exactly what this bridge exists to avoid
+ *   null            the backend is unavailable for any reason (no session, the
+ *                   native messenger not enabled -> 404, rate limited, server
+ *                   error, network failure, empty answer): the caller keeps the
+ *                   previous keyword behaviour, so nobody is worse off
  */
 async function requestSupportReply(msg) {
     try {
@@ -26752,8 +26757,15 @@ async function requestSupportReply(msg) {
         });
         if (!posted || !posted.ok) return null;
         const data = await posted.json();
-        const answer = data && data.message && data.message.body;
-        return typeof answer === 'string' && answer.trim() ? answer.trim() : null;
+        if (!data || data.ok === false) return null;
+        if (data.duplicate === true || data.aiPaused === true) return { human: true };
+        // IMPORTANT: `message` is the CUSTOMER's own message (an echo); the
+        // automated answer is in `reply`, which is either the AI message object
+        // or a plain notice string.
+        const reply = data.reply;
+        const answer = typeof reply === 'string' ? reply : (reply && reply.body);
+        if (typeof answer === 'string' && answer.trim()) return { text: answer.trim() };
+        return { human: true };
     } catch (e) {
         return null;
     }
@@ -26784,9 +26796,15 @@ function sendSupportMessage() {
                 && !!localStorage.getItem('jwt_token');
             if (canUseBackend) {
                 const answered = await requestSupportReply(msg);
-                if (answered) {
-                    chat.innerHTML += '<div class="chat-message agent"><div class="msg-bubble">' + escapeSupportText(answered) + '</div></div>';
+                if (answered && answered.text) {
+                    chat.innerHTML += '<div class="chat-message agent"><div class="msg-bubble">' + escapeSupportText(answered.text) + '</div></div>';
                     chat.scrollTop = chat.scrollHeight;
+                    return;
+                }
+                if (answered && answered.human) {
+                    // A support agent owns this conversation: the assistant must
+                    // stay quiet about the question and point at human support.
+                    appendSupportFallbackReply(t('support.reply.default'));
                     return;
                 }
             }

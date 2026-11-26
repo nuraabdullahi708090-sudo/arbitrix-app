@@ -114,7 +114,16 @@ async function ask(message, options) {
             calls.push({ url: String(url), init: init || {} });
             if (opts.fetch) return opts.fetch(String(url), init, calls);
             if (String(url).indexOf('/messages') !== -1) {
-                return { ok: true, json: async () => ({ ok: true, message: { body: opts.answer || 'The approved answer.' } }) };
+                // Mirrors the real API: `message` is the CUSTOMER's own message,
+                // the automated answer travels in `reply`.
+                return {
+                    ok: true,
+                    json: async () => ({
+                        ok: true,
+                        message: { body: message },
+                        reply: opts.reply !== undefined ? opts.reply : { body: opts.answer || 'The approved answer.' }
+                    })
+                };
             }
             return { ok: true, json: async () => ({ ok: true, conversation: { id: 11 } }) };
         };
@@ -168,6 +177,35 @@ test('B2. the widget sends the customer message and renders the server reply ver
     assert.equal(JSON.parse(out.calls[1].init.body).body, QUESTION, 'the customer question is forwarded');
     assert.ok(out.calls[1].init.body.indexOf('clientMessageId') !== -1, 'idempotency key is supplied');
     assert.ok(out.html.indexOf(approved) !== -1, 'reply rendered as-is');
+    // The customer message appears exactly once (as their own bubble), never as
+    // an "agent" answer: the API's `message` field is the echo of their input.
+    const bubbles = out.html.split('msg-bubble').length - 1;
+    assert.equal(bubbles, 2, 'one customer bubble + one agent bubble');
+    assert.ok(out.html.indexOf('<div class="chat-message agent"><div class="msg-bubble">' + QUESTION) === -1,
+        'the customer question is never echoed back as an agent answer');
+});
+
+test('B4. a human-owned thread gets no automated answer and no echo', async () => {
+    // ai_paused / duplicate mean a person owns the conversation: the assistant
+    // must not answer over them, and must not echo the customer's own text.
+    for (const payload of [{ aiPaused: true }, { duplicate: true }, { aiPaused: true, duplicate: true }]) {
+        const out = await ask(QUESTION, {
+            fetch: async (url) => {
+                if (String(url).indexOf('/messages') !== -1) {
+                    return { ok: true, json: async () => Object.assign({ ok: true, conversationId: 11, message: { body: QUESTION }, reply: null }, payload) };
+                }
+                return { ok: true, json: async () => ({ ok: true, conversation: { id: 11 } }) };
+            }
+        });
+        assert.ok(!/chat-message agent/.test(out.html), 'no agent bubble for ' + JSON.stringify(payload));
+        assert.equal(out.usedFallback, true, 'the customer is pointed at human support');
+    }
+});
+
+test('B5. a plain-string notice reply is rendered', async () => {
+    const out = await ask(QUESTION, { reply: 'A support agent has been notified.' });
+    assert.ok(out.html.indexOf('A support agent has been notified.') !== -1);
+    assert.equal(out.usedFallback, false);
 });
 
 test('B3. the conversation is created in the customer language', async () => {
@@ -208,14 +246,17 @@ test('C4. a network failure is swallowed and the widget still answers', async ()
     assert.ok(out.html.indexOf(T.en['support.reply.withdraw']) !== -1, 'keyword answer still rendered');
 });
 
-test('C5. a 500 or an empty answer never replaces the keyword behaviour', async () => {
+test('C5. a 500 keeps the keyword behaviour; a 200 with no reply does not invent one', async () => {
     const five = await ask('Tell me about the referral bonus', {
         fetch: async () => ({ ok: false, status: 500, json: async () => ({ ok: false }) })
     });
-    assert.ok(five.html.indexOf(T.en['support.reply.bonus']) !== -1);
+    assert.ok(five.html.indexOf(T.en['support.reply.bonus']) !== -1, 'server error -> offline keyword answer');
 
-    const empty = await ask('Tell me about the referral bonus', { answer: '   ' });
-    assert.ok(empty.html.indexOf(T.en['support.reply.bonus']) !== -1, 'blank answer is treated as no answer');
+    // The backend accepted the message but produced no automated turn: that is a
+    // human/queued case, NOT an invitation to answer from keywords.
+    const empty = await ask('Tell me about the referral bonus', { reply: { body: '   ' } });
+    assert.equal(empty.usedFallback, true, 'blank reply -> human-support pointer');
+    assert.ok(empty.html.indexOf(T.en['support.reply.bonus']) === -1, 'no keyword answer over the backend');
 });
 
 test('C6. a failed conversation create never posts a message', async () => {
