@@ -459,21 +459,32 @@ test('20. migration 060 is additive, idempotent and cannot delete history', () =
 
 // ------------------------------------------- migration 061 deployment contract
 
-test('21. before migration 061 the customer message still survives, but agent replies are refused', async () => {
+test('21. before migration 061 every message still flows; only the origin metadata degrades', async () => {
     const db = makePreMigrationDb();
     const service = NS.createNativeSupportService({ supabase: db, logger: { warn() {} } });
 
     const sent = await service.sendCustomerMessage({ userId: 30, body: 'Where is my deposit?' });
     assert.strictEqual(sent.ok, true, 'the customer message is persisted regardless of the schema');
-    assert.strictEqual(sent.reply, null, 'the acknowledgement is skipped, not invented');
+    assert.ok(sent.reply, 'the acknowledgement is still delivered, not skipped');
     assert.strictEqual(db._tables.support_messages.filter((m) => m.sender_type === 'customer').length, 1);
 
-    // 061 is REQUIRED for the reply path: `via` is written on every agent message.
-    // Merging the code before applying 061 would leave agents unable to reply.
-    assert.strictEqual((await service.sendAgentMessage({ adminId: 900, conversationId: sent.conversationId, body: 'Dashboard reply' })).reason, 'unavailable');
-    assert.strictEqual((await service.sendChannelReply({ conversationId: sent.conversationId, body: 'Telegram reply' })).reason, 'unavailable');
-    assert.strictEqual(db._tables.support_messages.filter((m) => m.sender_type === 'agent').length, 0,
-        'nothing partial is stored when the write is rejected');
+    // `via` is bookkeeping; the MESSAGE is the product. A missing column must
+    // never lose an agent reply - that was a real production defect: the reply
+    // insert failed, the bridge reported "unavailable" to the agent, and the
+    // customer saw nothing while the operator believed they had answered.
+    const dashboard = await service.sendAgentMessage({ adminId: 900, conversationId: sent.conversationId, body: 'Dashboard reply' });
+    assert.strictEqual(dashboard.ok, true, 'a dashboard reply survives a missing via column');
+    const channel = await service.sendChannelReply({ conversationId: sent.conversationId, body: 'Telegram reply' });
+    assert.strictEqual(channel.ok, true, 'a Telegram reply survives a missing via column');
+    assert.strictEqual(db._tables.support_messages.filter((m) => m.sender_type === 'agent').length, 2);
+
+    const history = await service.listMessages(30, sent.conversationId, {});
+    assert.strictEqual(history.ok, true, 'history is still readable');
+    assert.deepStrictEqual(history.messages.map((m) => m.body),
+        ['Where is my deposit?', NS.copyFor('en', 'received'), 'Dashboard reply', 'Telegram reply']);
+    history.messages.forEach((m) => {
+        assert.strictEqual(m.via, undefined, 'no origin is fabricated when the column is absent');
+    });
 });
 
 // --------------------------------------- single-administrator end-to-end flow
@@ -496,7 +507,8 @@ function singleAdminHarness(opts) {
             if (o.transportFails) throw new Error('telegram is down');
             sent.push({ chatId: String(chatId), text });
             state.lastMessageId = nextTelegramId++;
-            return { ok: true, messageId: state.lastMessageId };
+            // The shape createTelegramTransport really resolves with.
+            return { message_id: state.lastMessageId, date: 1, chat: { id: Number(chatId) }, text };
         }
     };
     const service = NS.createNativeSupportService({
@@ -684,7 +696,11 @@ test('31. every route is gated: customers by auth, administrators by auth + admi
     assert.ok(customers.length >= 6 && admins.length >= 8, 'both surfaces exist');
 
     for (const r of routes) {
-        assert.strictEqual(r.mw[1], authMw, r.path + ' requires an authenticated session');
+        // `noStore` (customer transcript caching) may sit between the feature gate
+        // and auth; what must never change is that auth runs on EVERY route.
+        const authIndex = r.mw.indexOf(authMw);
+        assert.ok(authIndex >= 1, r.path + ' requires an authenticated session, after the feature gate');
+        assert.ok(authIndex < r.mw.length - 1, r.path + ': auth runs before the handler');
     }
     for (const r of customers) {
         assert.strictEqual(r.mw.includes(adminMw), false, r.path + ' is not admin-only');

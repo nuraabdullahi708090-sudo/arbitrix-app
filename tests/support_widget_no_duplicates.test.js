@@ -132,15 +132,23 @@ test('B1 the native greeting renders from exactly one path', () => {
     assert.strictEqual(NATIVE.split("tt('ns.welcome')").length - 1, 0, 'the AI-era greeting is gone');
 });
 
+// The opening screen is the welcome state; `renderChooser` is kept as an alias of
+// `renderWelcome` because the panel no longer asks for a category at all.
+function welcomeSource() {
+    const start = NATIVE.indexOf('function renderWelcome()');
+    assert.notStrictEqual(start, -1, 'renderWelcome() not found');
+    const end = NATIVE.indexOf('function setSending(');
+    return NATIVE.slice(start, end);
+}
+
 test('B2 the opening screen shows the welcome and asks for no category', () => {
-    const chooser = NATIVE.slice(NATIVE.indexOf('function renderChooser()'), NATIVE.indexOf('function setSending('));
-    assert.ok(chooser.length > 0, 'renderChooser not found');
+    const chooser = welcomeSource();
     assert.match(chooser, /copy\('welcome'\)/, 'the static welcome is the opening message');
     assert.doesNotMatch(chooser, /ns\.catQ|ns\.cat\./, 'the customer is no longer asked to pick a category');
 });
 
 test('B3 the transcript greeting is one static system bubble', () => {
-    const chooser = NATIVE.slice(NATIVE.indexOf('function renderChooser()'), NATIVE.indexOf('function setSending('));
+    const chooser = welcomeSource();
     assert.match(chooser, /sender_type: 'system'/, 'the welcome is a system bubble, never an agent reply');
     assert.match(chooser, /appendMessage\(/, 'it goes into the transcript, not a separate banner');
 });

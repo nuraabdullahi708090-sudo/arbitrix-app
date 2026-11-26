@@ -10918,3 +10918,56 @@ NOT DONE: no merge, no deploy, no migration applied, no production configuration
   assigns it. Grep for `APP.<flag> =` and confirm the sync function is one of the
   sites; a flag set only in the signup handler works exactly once per account and
   silently degrades every returning customer.
+
+## Support messenger: Telegram replies were dropped + widget rebuild (2026-11-26, PR pending)
+
+- ROOT CAUSE of "Telegram reply never reaches the customer": `createTelegramTransport.sendMessage()`
+  RESOLVES with the Bot API `result` object (`{ message_id, date, chat, text }`) and THROWS on
+  failure. `services/SupportInboxBridge.js` read only `out.ok` / `out.messageId`, so
+  `track()` never ran, the notification id was never mapped to a conversation, and
+  `tryHandle()` returned null for every reply-to-notification. The bot then fell through to
+  its legacy operator handler (a different store) and the customer saw nothing. The
+  operator, meanwhile, was told "Reply delivered".
+  - FIX: `deliveredMessageId(out)` accepts `{ messageId }`, `{ message_id }` and
+    `{ result: { message_id } }`; `deliverySucceeded(out)` treats a resolved result as
+    success (explicit `ok: false` still fails). A delivered notification without an id now
+    logs ONE warning (it cannot be routed; `/kxreply <id> <text>` still works).
+  - TESTS THAT HID IT: every transport double in the suite returned `{ ok: true, messageId }`
+    - a shape production never produces. All doubles now return the real shape.
+
+- SECOND DEFECT: `support_messages.via` (migration 061) was assumed present. A database
+  without it made EVERY agent reply fail with PGRST204/"column via does not exist", so the
+  bridge answered "unavailable" to the operator while the customer saw nothing.
+  - FIX: `NativeSupport` probes once (`missingColumn(err,'via')` = 42703 / PGRST204 naming
+    the column), remembers the answer, and omits `via` from inserts AND from the select list
+    when it is absent. The message is the product; the origin is metadata.
+  - The old test pinned the opposite ("agent replies are refused before 061") - rewritten.
+
+- THIRD DEFECT: `listMessages` selected ascending + LIMIT, so a thread longer than the window
+  returned the OLDEST rows and the newest reply was unreachable. Full reads now fetch the
+  newest N (`order id desc limit N`) and reverse; incremental reads (`?after=`) stay
+  ascending. `via` is now part of the customer projection.
+
+- FOURTH: the customer routes had no cache headers. `noStore` (`Cache-Control: no-store`)
+  is applied to the conversation/message GET+POST routes.
+
+- WIDGET (public/native-support.js + the `<style id="nativeSupportStyles">` block in
+  index.html): compact dark-navy messenger, green support accent (green agent bubbles, green
+  send), blue customer bubbles, 52px header, 44px close, one scrolling transcript, panel
+  capped at `min(560px, calc(100vh - 40px))` / `min(72vh,560px)` on phones (dvh where
+  supported) with safe-area padding. A failed READ now shows ONE inline "Reconnecting..."
+  notice with a Retry action that resyncs - it never appends a chat bubble (that is what
+  produced the repeated "Something went wrong. Please try again." bubbles). A failed SEND
+  marks only its own bubble. `open()` starts the 5s poll (it previously only started when a
+  conversation was CREATED, so an existing thread never picked up a reply while open).
+  Removed "Talk to a human" (`ns.human`, `ns.humanQueued`, the `ns-link` element and
+  `requestHuman()`), and the synthetic "agent joined" note.
+
+- TESTS: NEW `tests/support_reply_retrieval.test.js` (13, real routes + real service + real
+  bridge + real bot + real transport over a PostgREST-faithful fake that enforces the
+  projection) and `tests/support_widget_ui.test.js` (13, presentation contract + the real
+  widget in a vm). NEW `tests/helpers/fake-postgrest.js`. Updated pins: the transport shape,
+  the `via` projection, pin 21/31 in native_support, the takeover note, dictionary size of
+  NS_TRANSLATIONS (45 keys x 6 locales). `npm test` = 4292 pass / 0 fail.
+  Browser: `/tmp/nsrepro/e2e` drives the real pipeline - 45/45.
+- NO migration is required (061 already provides `via`; the code degrades safely without it).

@@ -1,22 +1,42 @@
-
 /* ===========================================================================
  * Native in-app support - CUSTOMER widget.
- * Renders labels through t() (strings live in NS_TRANSLATIONS), never innerHTML
- * for user content, and polls while open. Enabled only when /api/auth/me reports
- * nativeSupport:true (feature flag NATIVE_SUPPORT_ENABLED).
+ *
+ * HUMAN-ONLY. There is no AI, no automated answer and no fallback bot: a message
+ * is stored, acknowledged once by a SYSTEM notice and answered by a person (the
+ * admin dashboard or Telegram). Both channels write to the same conversation, so
+ * this widget is a transport, never an author.
+ *
+ * Thread model
+ *   * ONE conversation per customer (the server resumes the active one), created
+ *     on the FIRST message so opening the panel never leaves an empty thread in
+ *     the agents' inbox.
+ *   * History is read twice: a full read when the panel opens / the page loads
+ *     (the newest N rows, always chronological) and an incremental read
+ *     (`?after=<last id>`) every 5s while the panel is open. A reply that arrives
+ *     while the widget is closed therefore appears on the next open or refresh,
+ *     without the customer having to send anything.
+ *   * Rendering is keyed on the SERVER message id, so a poll that overlaps a send
+ *     adopts the optimistic bubble instead of drawing the message twice.
+ *
+ * Failure model
+ *   * A failed SEND marks that bubble "Not sent" (the message is not stored, so
+ *     saying anything else would be a lie).
+ *   * A failed READ is NOT a message error: the thread is unchanged, so the
+ *     widget shows one quiet "Reconnecting..." notice with a retry action and
+ *     keeps polling. It never injects a chat bubble for a transport problem.
  * ========================================================================= */
 (function () {
   'use strict';
-  var state = { conversationId: null, lastId: 0, open: false, timer: null, sending: false, unread: 0, categories: null, started: false, creating: null,
+  var state = { conversationId: null, lastId: 0, open: false, timer: null, sending: false, unread: 0, started: false, creating: null,
     seen: Object.create(null), pendingNode: null, pendingClientId: null, pendingText: null,
-    identity: null, generation: 0 };
+    identity: null, generation: 0, readFailures: 0 };
 
   function token() { try { return localStorage.getItem('jwt_token') || ''; } catch (e) { return ''; } }
   function tt(key, vars) { try { return typeof t === 'function' ? t(key, vars) : key; } catch (e) { return key; } }
   function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
-  // HUMAN-ONLY copy: the ONLY two automated strings in this widget, and neither
-  // pretends to be an agent. The welcome is an interface message; the
-  // acknowledgement only says the team has the message and will respond.
+  // The ONLY automated strings in this widget. The welcome is an interface
+  // message; the acknowledgement says the team has the message - it never
+  // pretends to be an agent and never answers the question.
   var COPY = {
     en: {
       welcome: 'Welcome to Kalderix Support. How can we help you today? Send us a message and a member of our support team will respond personally.',
@@ -69,7 +89,7 @@
     });
   }
 
-  var root = null, body = null, foot = null, launcher = null, badge = null;
+  var root = null, body = null, foot = null, launcher = null, badge = null, notice = null;
 
   function build() {
     if (root) return;
@@ -88,23 +108,30 @@
     root.setAttribute('role', 'dialog');
     root.setAttribute('aria-label', tt('ns.title'));
     var head = el('div', 'ns-head');
-    head.appendChild(el('h3', null, tt('ns.title')));
-    var close = el('button', null, '\u00d7');
+    var ident = el('div', 'ns-head-id');
+    ident.appendChild(el('span', 'ns-dot'));
+    ident.appendChild(el('h3', null, tt('ns.title')));
+    head.appendChild(ident);
+    var close = el('button', 'ns-close', '\u00d7');
     close.type = 'button';
-    close.setAttribute('aria-label', 'Close');
+    close.setAttribute('aria-label', tt('ns.close'));
     close.addEventListener('click', hide);
     head.appendChild(close);
     root.appendChild(head);
     body = el('div', 'ns-body');
+    body.setAttribute('role', 'log');
+    body.setAttribute('aria-live', 'polite');
     root.appendChild(body);
     foot = el('div', 'ns-foot');
     root.appendChild(foot);
     document.body.appendChild(root);
   }
 
-  // Support is ONE conversation. Opening the widget shows the static welcome and
-  // the composer; a category is never requested from the customer.
-  function renderChooser() {
+  // Support is ONE conversation: opening the widget shows the static welcome and
+  // the composer. A category is never requested, and no conversation row is
+  // created until the customer actually writes something.
+  function renderWelcome() {
+    if (!body) return;
     body.innerHTML = '';
     appendMessage({
       sender_type: 'system',
@@ -113,6 +140,9 @@
     });
     renderComposer();
   }
+  // Alias: the panel is the "welcome" state, and older call sites/tests still
+  // refer to the chooser by name.
+  var renderChooser = renderWelcome;
 
   function setSending(on) {
     if (!foot) return;
@@ -121,14 +151,21 @@
   }
 
   function renderComposer() {
+    if (!foot) return;
     foot.innerHTML = '';
     var row = el('div', 'ns-row');
     var input = el('textarea');
     input.placeholder = tt('ns.placeholder');
-    input.maxLength = 2000;
     input.setAttribute('aria-label', tt('ns.placeholder'));
-    var send = el('button', 'ns-send', tt('ns.send'));
+    input.rows = 1;
+    input.maxLength = 2000;
+    var send = el('button', 'ns-send');
     send.type = 'button';
+    send.setAttribute('aria-label', tt('ns.send'));
+    var icon = el('i', 'fas fa-paper-plane');
+    icon.setAttribute('aria-hidden', 'true');
+    send.appendChild(icon);
+    send.appendChild(el('span', 'ns-send-text', tt('ns.send')));
     function submit() {
       var value = (input.value || '').trim();
       if (!value || state.sending) return;
@@ -140,10 +177,6 @@
     row.appendChild(input);
     row.appendChild(send);
     foot.appendChild(row);
-    var human = el('button', 'ns-link', tt('ns.human'));
-    human.type = 'button';
-    human.addEventListener('click', requestHuman);
-    foot.appendChild(human);
   }
 
   function messageNode(row, pending) {
@@ -151,18 +184,24 @@
     var cls = 'ns-msg ' + kind + (pending ? ' pending' : '');
     if (pending && pending.failed) cls += ' failed';
     var node = el('div', cls);
+    // Message ORIGIN (customer / admin / telegram / system) travels with the row
+    // so a bubble can be attributed without leaking the channel into the copy.
     if (row.via) node.setAttribute('data-via', row.via);
-    node.appendChild(el('span', null, row.body || ''));
-    var meta = pending
-      ? (pending.failed ? tt('ns.failed') : copy('sending'))
-      : (timeLabel(row.created_at) + (kind === 'customer' ? ' \u00b7 ' + copy('delivered') : ''));
+    if (kind === 'agent') node.setAttribute('data-role', 'agent');
+    node.appendChild(el('span', 'ns-text', row.body || ''));
+    var meta;
+    if (pending) meta = pending.failed ? tt('ns.failed') : copy('sending');
+    else if (kind === 'agent') meta = timeLabel(row.created_at);
+    else meta = timeLabel(row.created_at) + (kind === 'customer' ? ' \u00b7 ' + copy('delivered') : '');
     node.appendChild(el('span', 'ns-time', meta));
     return node;
   }
 
-  // Server-id dedupe: the 5s poll can return a row that is already on screen
-  // (an adopted optimistic bubble, or two overlapping polls). One row = one
-  // bubble; a repeat only refreshes the timestamp.
+  function scrollToEnd() { if (body) body.scrollTop = body.scrollHeight; }
+
+  // Server-id dedupe: the 5s poll can return a row that is already on screen (an
+  // adopted optimistic bubble, or two overlapping polls). One row = one bubble; a
+  // repeat only refreshes the timestamp.
   function appendMessage(row, pending) {
     if (!body) return null;
     if (row && row.id != null) {
@@ -176,13 +215,13 @@
       var node = messageNode(row, pending);
       state.seen[id] = node;
       body.appendChild(node);
-      body.scrollTop = body.scrollHeight;
       if (id > state.lastId) state.lastId = id;
+      scrollToEnd();
       return node;
     }
     var plain = messageNode(row, pending);
     body.appendChild(plain);
-    body.scrollTop = body.scrollHeight;
+    scrollToEnd();
     return plain;
   }
 
@@ -211,7 +250,32 @@
     appendMessage(row);
   }
 
-  // The account this panel's state belongs to.
+  // ---- transport notices -----------------------------------------------------
+  // A failed READ is a transport problem, not a message: show ONE quiet notice
+  // with a retry action, never a chat bubble, and never repeat it.
+  function showNotice(key) {
+    if (!body) return;
+    if (notice && notice.parentNode) {
+      var label = notice.querySelector('.ns-notice-text');
+      if (label) label.textContent = tt(key);
+      return;
+    }
+    notice = el('div', 'ns-notice');
+    notice.setAttribute('role', 'status');
+    notice.appendChild(el('span', 'ns-notice-text', tt(key)));
+    var retry = el('button', 'ns-notice-retry', tt('ns.retry'));
+    retry.type = 'button';
+    retry.addEventListener('click', function () { clearNotice(); resync(); });
+    notice.appendChild(retry);
+    body.appendChild(notice);
+  }
+
+  function clearNotice() {
+    if (notice && notice.parentNode) notice.parentNode.removeChild(notice);
+    notice = null;
+  }
+
+  // ---- account identity ------------------------------------------------------
   //
   // The session token is the ONLY value that is (a) written by every login path,
   // (b) removed on logout and (c) actually authenticated by the API - so it is
@@ -245,10 +309,12 @@
     state.lastId = 0;
     state.started = false;
     state.sending = false;
+    state.readFailures = 0;
     state.seen = Object.create(null);
     state.pendingNode = null;
     state.pendingClientId = null;
     state.pendingText = null;
+    notice = null;
     setUnread(0);
     if (body) body.innerHTML = '';
     if (foot) foot.innerHTML = '';
@@ -256,8 +322,8 @@
 
   function stale(gen) { return gen !== state.generation; }
 
-  // Created on the FIRST message, so opening the widget never leaves an empty
-  // thread in the agents' inbox.
+  // Created on the FIRST message. The server endpoint is get-or-create, so this
+  // can never open a second active thread for the same customer.
   function ensureConversation() {
     if (state.conversationId) return Promise.resolve(state.conversationId);
     if (state.creating) return state.creating;
@@ -275,12 +341,14 @@
         poll();
         return state.conversationId;
       }
-      appendMessage({ sender_type: 'system', body: tt('ns.error'), created_at: new Date().toISOString() });
+      // Nothing was stored, so nothing claims otherwise: the caller restores the
+      // draft and the notice offers a retry.
+      showNotice('ns.reconnecting');
       return null;
     }).catch(function () {
       state.creating = null;
       if (stale(gen)) return null;
-      appendMessage({ sender_type: 'system', body: tt('ns.error'), created_at: new Date().toISOString() });
+      showNotice('ns.reconnecting');
       return null;
     });
     return state.creating;
@@ -290,35 +358,100 @@
     var gen = state.generation;
     return call('/api/support/conversations').then(function (r) {
       if (stale(gen)) return;
+      if (!r.ok) {
+        // We cannot tell whether a thread exists, so do NOT create one: show the
+        // welcome, say we are reconnecting, and let the server's get-or-create
+        // endpoint resolve it when the customer writes.
+        state.readFailures++;
+        renderWelcome();
+        showNotice('ns.reconnecting');
+        return;
+      }
       var list = (r.body && r.body.conversations) || [];
       var active = list.filter(function (c) { return c.status !== 'resolved'; })[0];
       var unread = list.reduce(function (n, c) { return n + (Number(c.unread_for_customer) || 0); }, 0);
       setUnread(unread);
-      if (!active) { renderChooser(); return; }
+      state.readFailures = 0;
+      clearNotice();
+      if (!active) { renderWelcome(); return; }
       state.conversationId = active.id;
       state.started = true;
       body.innerHTML = '';
       renderComposer();
-      return refresh().then(function () { if (typeof NativeSupport !== 'undefined') NativeSupport.unread = unread; });
+      return refresh({ full: true }).then(function () {
+        if (typeof NativeSupport !== 'undefined') NativeSupport.unread = unread;
+      });
+    }).catch(function () {
+      if (stale(gen)) return;
+      state.readFailures++;
+      renderWelcome();
+      showNotice('ns.reconnecting');
     });
   }
 
-  function refresh() {
+  /**
+   * Read the thread.
+   *   refresh()            -> only rows after the cursor (polling)
+   *   refresh({full:true}) -> the whole thread, newest N rows, chronological
+   * A failed read leaves the transcript untouched and surfaces one notice; the
+   * next tick retries, and resync() repairs a cursor that has gone stale.
+   */
+  function refresh(options) {
     if (!state.conversationId) return Promise.resolve();
+    var full = !!(options && options.full);
     var gen = state.generation;
-    return call('/api/support/conversations/' + state.conversationId + '/messages?after=' + state.lastId).then(function (r) {
+    var path = '/api/support/conversations/' + state.conversationId + '/messages'
+      + (full ? '' : '?after=' + state.lastId);
+    return call(path).then(function (r) {
       if (stale(gen)) return;
+      if (!r.ok) {
+        if (r.status === 404) {
+          // The conversation is gone (resolved elsewhere / not ours): forget the
+          // cursor so the next open starts from a clean read instead of polling a
+          // thread that no longer exists.
+          state.started = false;
+          state.conversationId = null;
+          state.lastId = 0;
+          state.seen = Object.create(null);
+          renderWelcome();
+          return;
+        }
+        throw new Error('history-unavailable');
+      }
+      state.readFailures = 0;
+      clearNotice();
       var rows = (r.body && r.body.messages) || [];
       rows.forEach(function (row) { reconcileOrAppend(row); });
-      if (rows.length) {
-        var conv = r.body.conversation || {};
-        if (conv.ai_paused && (conv.status === 'waiting' || conv.status === 'assigned')) {
-          var note = body.querySelector('.ns-agent-note');
-          if (!note) { var n = el('div', 'ns-msg system ns-agent-note', tt('ns.agentJoined')); body.appendChild(n); }
-        }
-        markRead();
-      }
-    }).catch(function () { /* polling failures are silent; the next tick retries */ });
+      // No "an agent joined" banner: the agent's own green bubble says so, and an
+      // extra synthetic line would compete with the real transcript.
+      if (rows.length) markRead();
+    }).catch(function () {
+      if (stale(gen)) return;
+      state.readFailures++;
+      // One notice, not one per failed poll.
+      showNotice('ns.reconnecting');
+    });
+  }
+
+  /**
+   * Repair the view: re-read the WHOLE thread and redraw it. Used by the notice's
+   * retry action and whenever a cursor may be ahead of the server. Rendering is
+   * id-based, so a row that is already on screen cannot be duplicated.
+   */
+  function resync() {
+    if (!state.conversationId) return loadExisting();
+    var gen = state.generation;
+    state.lastId = 0;
+    state.seen = Object.create(null);
+    state.pendingNode = null;
+    state.pendingClientId = null;
+    state.pendingText = null;
+    if (body) body.innerHTML = '';
+    renderComposer();
+    return refresh({ full: true }).then(function () {
+      if (stale(gen)) return;
+      if (!body || !body.children.length) renderWelcome();
+    });
   }
 
   function sendMessage(text) {
@@ -326,17 +459,25 @@
     // is pending is ignored (the server would store it as a separate message).
     if (state.sending) return;
     if (!state.conversationId) {
-      ensureConversation().then(function (id) { if (id) sendMessage(text); });
+      var gen0 = state.generation;
+      ensureConversation().then(function (id) {
+        if (stale(gen0)) return;
+        if (id) { sendMessage(text); return; }
+        // Nothing was stored: put the text back so the customer does not lose it.
+        var input = foot && foot.querySelector('textarea');
+        if (input && !input.value) input.value = text;
+      });
       return;
     }
     var gen = state.generation;
     state.sending = true;
     setSending(true);
+    clearNotice();
     var clientId = 'c' + Date.now() + Math.random().toString(36).slice(2, 8);
     var optimistic = { sender_type: 'customer', body: text, created_at: new Date().toISOString() };
     var node = messageNode(optimistic, { pending: true });
     body.appendChild(node);
-    body.scrollTop = body.scrollHeight;
+    scrollToEnd();
     state.pendingNode = node;
     state.pendingClientId = clientId;
     state.pendingText = text;
@@ -352,9 +493,11 @@
       state.sending = false;
       setSending(false);
       if (!r.ok) {
+        // The message is NOT stored: mark THIS bubble and stop there. No chat
+        // bubble is added for the transport problem itself.
         node.className = 'ns-msg customer pending failed';
-        var label = el('span', 'ns-time', tt(r.status === 429 ? 'ns.rateLimited' : 'ns.error'));
-        node.appendChild(label);
+        var label = node.querySelector('.ns-time');
+        if (label) label.textContent = tt(r.status === 429 ? 'ns.rateLimited' : 'ns.error');
         clearPending();
         return;
       }
@@ -370,7 +513,7 @@
           state.seen[id] = node;
           if (id > state.lastId) state.lastId = id;
           var t = node.querySelector('.ns-time');
-          if (t) t.textContent = timeLabel(message.created_at);
+          if (t) t.textContent = timeLabel(message.created_at) + ' \u00b7 ' + copy('delivered');
         }
       } else {
         node.classList.remove('pending');
@@ -382,20 +525,10 @@
       state.sending = false;
       setSending(false);
       node.className = 'ns-msg customer pending failed';
-      node.appendChild(el('span', 'ns-time', tt('ns.offline')));
+      var t = node.querySelector('.ns-time');
+      if (t) t.textContent = tt('ns.offline');
       clearPending();
     });
-  }
-
-  function requestHuman() {
-    if (!state.conversationId) return;
-    var gen = state.generation;
-    call('/api/support/conversations/' + state.conversationId + '/human', { method: 'POST', body: {} })
-      .then(function (r) {
-        if (stale(gen)) return;
-        if (r.ok && r.body.message) appendMessage(r.body.message);
-        else appendMessage({ sender_type: 'system', body: tt('ns.error'), created_at: new Date().toISOString() });
-      }).catch(function () {});
   }
 
   function markRead() {
@@ -440,8 +573,18 @@
     root.classList.add('open');
     state.open = true;
     if (launcher) launcher.classList.remove('show');
-    if (!state.started) loadExisting();
-    else refresh();
+    // Start (or restart) the incremental read: an agent reply must appear while
+    // the panel sits open, without the customer sending anything. poll() is
+    // idempotent, and it only ticks while `state.open` is true.
+    poll();
+    if (!state.started) {
+      loadExisting();
+    } else {
+      // Coming back to an open panel: read the WHOLE thread so anything that
+      // arrived meanwhile is on screen without waiting for the next poll.
+      refresh({ full: true });
+      markRead();
+    }
   }
 
   function hide() {
@@ -455,10 +598,17 @@
     open: open,
     close: hide,
     refresh: refresh,
+    resync: resync,
     unread: 0,
     reloadLabels: function () {
       if (!root) return;
       if (launcher) launcher.setAttribute('aria-label', tt('ns.title'));
+      if (notice) {
+        var label = notice.querySelector('.ns-notice-text');
+        if (label) label.textContent = tt('ns.reconnecting');
+        var retry = notice.querySelector('.ns-notice-retry');
+        if (retry) retry.textContent = tt('ns.retry');
+      }
       if (state.started) { renderComposer(); }
       else if (body && !body.children.length) renderChooser();
     },

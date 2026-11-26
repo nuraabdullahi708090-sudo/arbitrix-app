@@ -61,6 +61,17 @@ function registerNativeSupportRoutes(app, deps) {
         next();
     }
 
+    // A support transcript is private, per-customer and polled. Any cache - the
+    // browser's, an intermediary's or the CDN in front of the app - must never
+    // answer a poll with an older body, which is exactly how an agent's reply can
+    // be "missing" while the database has it.
+    function noStore(req, res, next) {
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+        res.set('Pragma', 'no-cache');
+        res.set('Expires', '0');
+        next();
+    }
+
     function wrap(handler) {
         return async function wrapped(req, res) {
             try {
@@ -74,11 +85,11 @@ function registerNativeSupportRoutes(app, deps) {
 
     // ------------------------------------------------------------- customer API
 
-    app.get('/api/support/conversations', guard, authMiddleware, wrap(async (req, res) => {
+    app.get('/api/support/conversations', guard, noStore, authMiddleware, wrap(async (req, res) => {
         sendResult(res, await support.listConversations(req.user.id));
     }));
 
-    app.post('/api/support/conversations', guard, authMiddleware, wrap(async (req, res) => {
+    app.post('/api/support/conversations', guard, noStore, authMiddleware, wrap(async (req, res) => {
         const body = req.body || {};
         sendResult(res, await support.getOrCreateConversation(req.user.id, {
             category: body.category,
@@ -86,14 +97,14 @@ function registerNativeSupportRoutes(app, deps) {
         }), 201);
     }));
 
-    app.get('/api/support/conversations/:id/messages', guard, authMiddleware, wrap(async (req, res) => {
+    app.get('/api/support/conversations/:id/messages', guard, noStore, authMiddleware, wrap(async (req, res) => {
         sendResult(res, await support.listMessages(req.user.id, intParam(req.params.id, 0), {
             afterId: intParam(req.query.after, 0) || null,
             limit: intParam(req.query.limit, 0) || undefined,
         }));
     }));
 
-    app.post('/api/support/conversations/:id/messages', guard, authMiddleware, wrap(async (req, res) => {
+    app.post('/api/support/conversations/:id/messages', guard, noStore, authMiddleware, wrap(async (req, res) => {
         const body = req.body || {};
         sendResult(res, await support.sendCustomerMessage({
             userId: req.user.id,
@@ -107,7 +118,7 @@ function registerNativeSupportRoutes(app, deps) {
         sendResult(res, await support.requestHuman(req.user.id, intParam(req.params.id, 0)));
     }));
 
-    app.post('/api/support/conversations/:id/read', guard, authMiddleware, wrap(async (req, res) => {
+    app.post('/api/support/conversations/:id/read', guard, noStore, authMiddleware, wrap(async (req, res) => {
         sendResult(res, await support.markCustomerRead(req.user.id, intParam(req.params.id, 0)));
     }));
 

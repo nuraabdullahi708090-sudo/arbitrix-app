@@ -106,6 +106,11 @@ function boot(config) {
             const after = state.ignoreAfter ? 0 : Number(u.split('after=')[1]);
             return Promise.resolve(jsonRes({ ok: true, conversation: { id: 900 }, messages: state.messages.filter((m) => m.id > after) }));
         }
+        // FULL read (open / fresh page): the server returns the newest N rows and
+        // the widget renders them chronologically. `via` is part of the payload.
+        if (/\/messages$/.test(u) && method === 'GET') {
+            return Promise.resolve(jsonRes({ ok: true, conversation: { id: 900 }, messages: state.messages.slice() }));
+        }
         if (/\/messages$/.test(u) && method === 'POST') {
             const row = state.rowFor
                 ? state.rowFor(parsed)
@@ -318,8 +323,14 @@ test('7. wiring: activation after /api/auth/me, deactivation on logout, legacy h
     assert.match(INDEX, /body\.ns-enabled \.support-widget\{display:none\}/,
         'the legacy floating assistant is hidden while native support is enabled');
 
-    assert.match(SERVICE, /select\('id, conversation_id, sender_type, body, created_at, client_message_id'\)/,
+    // The customer projection must carry BOTH the reconciliation key and the
+    // message origin: without client_message_id an overlapping poll duplicates a
+    // bubble, and without `via` the widget cannot attribute an agent reply.
+    assert.match(SERVICE, /sender_type, body, created_at, client_message_id/,
         'the API exposes client_message_id so reconciliation is exact');
+    assert.match(SERVICE, /\+ \(withVia \? ', via' : ''\)/, 'the projection carries the message origin');
+    assert.match(WIDGET, /if \(row\.via\) node\.setAttribute\('data-via', row\.via\)/,
+        'the widget renders the origin it was given');
 });
 
 test('8. opening with no thread shows the static welcome and creates NOTHING yet', async () => {

@@ -203,6 +203,20 @@ function createNativeSupportService(options) {
         logger.warn('[native-support] ' + key + ': ' + String(detail || '').slice(0, 200));
     }
 
+    // support_messages.via ships with migration 061. Deployments are migration-gated
+    // in this project, so the code must keep working before it is applied: one column
+    // probe, remembered, and the feature simply reports no origin until it exists.
+    let viaColumn = true;
+
+    function missingColumn(err, column) {
+        const code = String((err && err.code) || '');
+        const message = String((err && err.message) || '').toLowerCase();
+        // 42703 = undefined_column, PGRST204 = "Could not find the 'x' column ... in
+        // the schema cache". Both name the column, so an unrelated error cannot
+        // trigger the retry.
+        return (code === '42703' || code === 'PGRST204') && message.indexOf(column.toLowerCase()) !== -1;
+    }
+
     // supabase-js RESOLVES with { error } instead of throwing: convert that into
     // one exception so every caller has a single failure path.
     async function run(builder) {
@@ -270,23 +284,40 @@ function createNativeSupportService(options) {
     }
 
     async function insertMessage(conversationId, senderType, body, meta) {
-        const payload = {
-            conversation_id: conversationId,
-            sender_type: senderType,
-            sender_user_id: (meta && meta.senderUserId) || null,
-            body: body,
-            client_message_id: (meta && meta.clientMessageId) || null,
-            via: (meta && meta.via) || null,
-            created_at: now().toISOString(),
+        const clientMessageId = (meta && meta.clientMessageId) || null;
+        const payloadFor = function (withVia) {
+            const payload = {
+                conversation_id: conversationId,
+                sender_type: senderType,
+                sender_user_id: (meta && meta.senderUserId) || null,
+                body: body,
+                client_message_id: clientMessageId,
+                created_at: now().toISOString(),
+            };
+            if (withVia) payload.via = (meta && meta.via) || null;
+            return payload;
         };
+        const payload = payloadFor(viaColumn);
         try {
-            const res = await run(supabase.from('support_messages').insert(payload).select().single());
+            let res;
+            try {
+                res = await run(supabase.from('support_messages').insert(payload).select().single());
+            } catch (err) {
+                // support_messages.via arrives in migration 061. An agent reply must
+                // never be lost because a bookkeeping column is missing: retry once
+                // without it (the column is metadata, the message is the product) and
+                // remember the answer so NO later insert pays for the probe again.
+                if (!viaColumn || !missingColumn(err, 'via')) throw err;
+                viaColumn = false;
+                logOnce('via-column-missing', 'support_messages.via is absent (migration 061 not applied)');
+                res = await run(supabase.from('support_messages').insert(payloadFor(false)).select().single());
+            }
             return { ok: true, message: res.data };
         } catch (err) {
             if (err && (err.code === '23505' || /duplicate key/i.test(err.message || ''))) {
                 const again = await run(supabase.from('support_messages').select('*')
                     .eq('conversation_id', conversationId)
-                    .eq('client_message_id', payload.client_message_id).limit(1));
+                    .eq('client_message_id', clientMessageId).limit(1));
                 const existing = again && again.data && again.data[0];
                 if (existing) return { ok: true, message: existing, duplicate: true };
             }
@@ -405,15 +436,44 @@ function createNativeSupportService(options) {
     async function listMessages(userId, conversationId, extra) {
         const conversation = await loadConversation(userId, conversationId).catch(function () { return null; });
         if (!conversation) return fail('not-found');
-        try {
+        const afterId = (extra && extra.afterId) || null;
+        const limit = (extra && extra.limit) || limits.historyLimit;
+
+        // One query builder, two modes:
+        //   afterId  -> INCREMENTAL (polling): ascending, strictly greater than the
+        //               cursor, bounded. The client advances its cursor per row.
+        //   no after -> FULL HISTORY (open / fresh page): the NEWEST `limit` rows,
+        //               then reversed. Ascending + LIMIT would return the OLDEST rows,
+        //               so an agent's latest reply could never be reached in a long
+        //               thread - it simply fell outside the window.
+        function build(withVia) {
+            const columns = 'id, conversation_id, sender_type, body, created_at, client_message_id'
+                + (withVia ? ', via' : '');
             let query = supabase.from('support_messages')
-                .select('id, conversation_id, sender_type, body, created_at, client_message_id')
-                .eq('conversation_id', conversation.id)
-                .order('id', { ascending: true })
-                .limit((extra && extra.limit) || limits.historyLimit);
-            if (extra && extra.afterId) query = query.gt('id', extra.afterId);
-            const res = await run(query);
-            return { ok: true, conversation: conversation, messages: res.data || [] };
+                .select(columns)
+                .eq('conversation_id', conversation.id);
+            if (afterId) {
+                return query.gt('id', afterId).order('id', { ascending: true }).limit(limit);
+            }
+            return query.order('id', { ascending: false }).limit(limit);
+        }
+
+        try {
+            let res;
+            try {
+                res = await run(build(viaColumn));
+            } catch (err) {
+                // A database without migration 061 has no `via`; history is more
+                // important than the provenance column, so serve it without.
+                if (!viaColumn || !missingColumn(err, 'via')) throw err;
+                viaColumn = false;
+                logOnce('via-column-missing', 'support_messages.via is absent (migration 061 not applied)');
+                res = await run(build(false));
+            }
+            const rows = res.data || [];
+            // Chronological for BOTH modes: the full read is fetched newest-first.
+            const messages = afterId ? rows : rows.slice().reverse();
+            return { ok: true, conversation: conversation, messages: messages };
         } catch (err) {
             return fail('unavailable');
         }
