@@ -11011,3 +11011,77 @@ NOT DONE: no merge, no deploy, no migration applied, no production configuration
   (enabled/disabled at load, slow auth, failed auth, refresh, logout, account switch,
   sandbox, duplicate script) with a 25 ms sampler asserting that the number of PAINTED
   support launchers is never 2 and that the right one appears.
+
+
+## PR #222 pre-merge audit - support surface lifecycle & account isolation (2026-11-26)
+
+- Read-only audit of the single-launcher controller at HEAD 1378c37 on the REAL page
+  (headless Chromium, /api/* answered by a per-token stub so nothing is created
+  server-side, a 25 ms sampler counting PAINTED support surfaces). Three real defects
+  were found and fixed; the rest of the review's checklist verified clean.
+
+### Defects found (each reproduced before the change)
+1. An ALREADY-OPEN legacy panel survived the handover to the messenger. The surface
+   rule hid the widget but left `#supportPanel.open` set, so
+   `body:has(#supportPanel.open)` kept applying to an invisible panel and the next
+   `legacy` transition (logout) restored the panel already open, showing the previous
+   session's transcript. `KxSupportSurface.set()` now CLOSES the panel whenever the
+   surface is not `legacy`.
+2. Logout left the previous session's legacy transcript in the DOM. The assistant's
+   chat is DOM-only (no server conversation), and with the messenger off - the deployed
+   default - the panel could even still be open on the auth page. `resetLegacySupportChat()`
+   (new) closes the panel, clears the draft, restores the welcome bubble and bumps
+   `APP.legacySupportEpoch`; `sendSupportMessage()` captures that epoch and drops its
+   continuation if it changed, so a slow answer cannot append to the next account's chat.
+3. `body.ns-enabled` could disagree with the surface attribute. `sync()` wrote both, but
+   the live-mode render ASSIGNS `document.body.className = 'mode-live'`, wiping the class
+   while the attribute kept its value (measured: `surface=native`, `ns-enabled` absent).
+   The marker and its now-redundant CSS rule are REMOVED; the attribute is the only
+   switch. Anything a `body.className` assignment does can no longer desync it.
+4. (found while fixing 3) `sync()` called `show()` even when the messenger panel was
+   already open, putting a launcher pill on top of the open panel after a login, an
+   account switch or a duplicate script load. It now only shows the launcher when the
+   panel is closed.
+5. (found while fixing 2) `handOverToHumanSupport()` called `NativeSupport.open()`
+   regardless of the surface, so a customer who typed in the legacy assistant during a
+   slow (pending -> legacy) startup could get the messenger panel opened on top of the
+   legacy widget. `open()` now refuses unless the messenger is the current surface
+   (returns `false`) and the host falls back to the static acknowledgement.
+
+### Verified clean (no change needed)
+- Only ONE writer derives the surface (`NativeSupport.sync()`); the host controller only
+  applies it. `pending` is the static default, so nothing paints before the decision.
+- The watchdog (8 s) is not re-armed by repeated syncs; a late auth resolving ENABLED
+  upgrades pending/legacy -> native (measured 9.5 s), a late DISABLED keeps legacy, a
+  malformed body and a 500 both fall back to legacy. Never two surfaces in any sample.
+- Account isolation in the messenger: the identity is the JWT (`s:<token>`), a switch
+  resets cursors/dedupe/transcript and bumps `generation`, and a response for the old
+  account is dropped (measured with a 2.5 s delayed read landing after the switch).
+- A duplicate `native-support.js` include creates no second launcher/panel/transcript and
+  does not double the poll rate (1 read per interval before and after).
+- Human-only invariants intact: no AI/knowledge answering in the widget, no wallet or
+  ledger access, both surfaces share the one `support_conversations` thread, migration
+  061 untouched. The messenger renders text with `textContent`; the legacy chat escapes
+  with `escapeSupportText` (and now receives no server text at all under human-only).
+- No "Talk to a human" link anywhere in the rendered messenger (re-checked in the same
+  harness), no repeated "Something went wrong" text during normal operation.
+
+### Tests
+- `tests/support_surface_single_launcher.test.js` 10 -> 18: S14 (open panel is closed on
+  handover, NOT on `legacy`), S15 (no class marker; `body.className` cannot desync),
+  S16 (logout resets panel/input/transcript/epoch, and logout calls it), S17 (an
+  in-flight legacy reply is guarded twice), S18 (`open()` refuses on a legacy surface,
+  succeeds on native, and the host honours the refusal).
+- Pin updates for the marker removal: `tests/native_support_widget.test.js` (assert the
+  attribute; assert no `body.ns-enabled` SELECTOR), `tests/support_surface_single_launcher`
+  (S1/S3/S4/S6/S9), `tests/browser/native-support/browser.js` (committed harness).
+  `tests/support_fallback.test.js` + `tests/support_widget_backend_bridge.test.js` now
+  inject `legacySupportEpoch` into their sandboxes (sendSupportMessage depends on it).
+- `npm test` = 4310 pass / 0 fail (baseline 4305 + 5). CI static checks reproduce locally:
+  79 files `node --check`, workflow validation, 13/13 inline script blocks parse.
+- Browser: `/tmp/nsrepro/e2e/lifecycle.js` = 56/56 (L0 steady states + refresh + sandbox,
+  L1 open-panel handover and logout, L2/L3 the watchdog races, L4 malformed/500, L5
+  account-switch leak, L6 duplicate include, L7 in-flight reply after logout, L8
+  `body.className` desync, L9 hand-over refusal, L10 the widget UI contract).
+- Encoding: 0 pre-existing non-ASCII code points lost or added, 0 U+FFFD.
+- No migration, no server.js/financial change, no production configuration touched.

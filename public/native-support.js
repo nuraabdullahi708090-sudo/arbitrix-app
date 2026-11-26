@@ -50,8 +50,9 @@
   // Before this existed the two launchers were controlled independently: the
   // legacy one was visible from first paint by CSS and the native one appeared
   // whenever the flag happened to arrive, so a slow (or failed) /api/auth/me left
-  // the wrong launcher on screen - and any path that cleared `ns-enabled` while
-  // the messenger was mounted could show both at once.
+  // the wrong launcher on screen - and the second marker that was supposed to keep
+  // them apart (`body.ns-enabled`) could be wiped while the messenger was mounted,
+  // which showed both at once. There is one marker now, and it is the attribute.
   var SURFACES = { pending: true, native: true, legacy: true };
   // A resolution that never arrives (slow, hung or failed auth) must not leave the
   // customer with no support at all: after this long the legacy surface is used and
@@ -73,10 +74,7 @@
     }
     // Standalone load (tests, embedded harness): the same rule, applied here.
     try {
-      if (document.body) {
-        if (document.body.dataset) document.body.dataset.supportSurface = value;
-        if (document.body.classList) document.body.classList.toggle('ns-enabled', value === 'native');
-      }
+      if (document.body && document.body.dataset) document.body.dataset.supportSurface = value;
     } catch (e) {}
     if (value === 'pending' && surfaceTimer) return;   // keep the original deadline
     if (surfaceTimer) { clearTimeout(surfaceTimer); surfaceTimer = null; }
@@ -628,6 +626,11 @@
   function hideLauncher() { if (launcher) launcher.classList.remove('show'); if (root) root.classList.remove('open'); state.open = false; }
 
   function open() {
+    // The messenger opens ONLY on its own surface. Opening it while the legacy
+    // assistant owns support would put two support surfaces on screen at once (and
+    // its API may be switched off server-side). Callers get `false` and decide
+    // what to say instead - see handOverToHumanSupport() in index.html.
+    if (state.surface !== 'native') return false;
     build();
     root.classList.add('open');
     state.open = true;
@@ -644,6 +647,7 @@
       refresh({ full: true });
       markRead();
     }
+    return true;
   }
 
   function hide() {
@@ -710,8 +714,14 @@
         return;
       }
       build();
-      if (!state.open) refreshBadge(false);
-      show();
+      // Never show the launcher while the panel it opens is ALREADY open: sync()
+      // runs on login, on an account switch and on a duplicate script load, and
+      // showing it there put a launcher pill on top of an open messenger - two
+      // support surfaces on screen at once.
+      if (!state.open) {
+        refreshBadge(false);
+        show();
+      }
     }
   };
   window.NativeSupport = NativeSupport;

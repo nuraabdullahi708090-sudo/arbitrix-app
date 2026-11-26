@@ -63,6 +63,9 @@ const FALLBACK = extractFunction('appendSupportFallbackReply');
 // part of the same widget (no second implementation).
 const REQUEST = extractFunction('requestSupportReply');
 const ESCAPE = extractFunction('escapeSupportText');
+// The legacy assistant's session epoch: sendSupportMessage() pins an in-flight
+// reply to the session that asked for it, so the helper is part of its contract.
+const EPOCH = extractFunction('legacySupportEpoch');
 
 /* Runs the real assistant code for one message and returns what it rendered. */
 function ask(message, lang, mta) {
@@ -88,7 +91,7 @@ function ask(message, lang, mta) {
         },
     };
     vm.createContext(sandbox);
-    vm.runInContext(REQUEST + '\n' + ESCAPE + '\n' + SEND + '\n' + FALLBACK + '\nsendSupportMessage();', sandbox);
+    vm.runInContext(REQUEST + '\n' + ESCAPE + '\n' + EPOCH + '\n' + SEND + '\n' + FALLBACK + '\nsendSupportMessage();', sandbox);
     // The reply is appended either as HTML (supported answers) or as nodes
     // (fallback). Expose both shapes.
     const nodes = chat.children.length ? chat.children[chat.children.length - 1] : null;

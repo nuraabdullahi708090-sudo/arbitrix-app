@@ -7,8 +7,8 @@
  * launcher is created and shown by JS once the server feature flag is known. Before
  * this contract existed the two were controlled independently, so a slow / failed
  * /api/auth/me left the legacy launcher on screen (tap it and you got the assistant,
- * where a human reply can never appear) and any path that cleared `ns-enabled` while
- * the messenger was mounted could show BOTH.
+ * where a human reply can never appear) and any path that cleared the second marker
+ * while the messenger was mounted could show BOTH.
  *
  * The fix is a single decision - NativeSupport.sync() writes
  * `<body data-support-surface>` - plus one stylesheet rule per surface. These tests
@@ -135,7 +135,6 @@ function boot(config) {
             set(value) {
                 controller.calls.push(value);
                 body.dataset.supportSurface = value;
-                body.classList.toggle('ns-enabled', value === 'native');
             }
         };
     }
@@ -170,7 +169,7 @@ test('S1 an unresolved session draws NEITHER launcher', () => {
     assert.strictEqual(h.surfaceAttr(), 'pending', 'body carries the pending surface');
     assert.strictEqual(h.shownLaunchers().length, 0, 'no messenger launcher is drawn');
     assert.strictEqual(h.launchers().length, 0, 'the messenger does not even mount while pending');
-    assert.strictEqual(h.body.classList.contains('ns-enabled'), false, 'the pending surface does not claim "native"');
+    assert.strictEqual(h.surfaceAttr(), 'pending', 'the pending surface is stated, not implied by a class');
 });
 
 test('S2 a slow / failed resolution falls back to the legacy launcher (and never to two)', () => {
@@ -199,7 +198,7 @@ test('S3 a late server answer still upgrades to the messenger', () => {
     assert.strictEqual(h.widget().surface(), 'native');
     assert.strictEqual(h.surfaceAttr(), 'native');
     assert.strictEqual(h.shownLaunchers().length, 1, 'exactly one messenger launcher');
-    assert.strictEqual(h.body.classList.contains('ns-enabled'), true);
+    assert.strictEqual(h.surfaceAttr(), 'native');
 });
 
 test('S4 a resolved "off" answer shows the legacy launcher and no messenger', () => {
@@ -209,7 +208,7 @@ test('S4 a resolved "off" answer shows the legacy launcher and no messenger', ()
     assert.strictEqual(h.widget().surface(), 'legacy');
     assert.strictEqual(h.surfaceAttr(), 'legacy');
     assert.strictEqual(h.shownLaunchers().length, 0);
-    assert.strictEqual(h.body.classList.contains('ns-enabled'), false, 'the legacy launcher rule applies');
+    assert.strictEqual(h.surfaceAttr(), 'legacy', 'the legacy launcher rule applies');
 });
 
 test('S5 a response without the field still resolves (it means "off")', () => {
@@ -239,7 +238,7 @@ test('S6 logout removes the messenger launcher and hands the surface back', () =
 
     assert.strictEqual(h.widget().surface(), 'legacy');
     assert.strictEqual(h.surfaceAttr(), 'legacy', 'the legacy launcher rule applies again');
-    assert.strictEqual(h.body.classList.contains('ns-enabled'), false);
+    assert.strictEqual(h.surfaceAttr(), 'legacy');
     assert.strictEqual(h.shownLaunchers().length, 0, 'no messenger launcher survives the logout');
 });
 
@@ -291,18 +290,20 @@ test('S9 the surface is the ONLY thing that decides launcher visibility', () => 
     // One writer in the widget, one host helper that delegates to sync().
     const writers = WIDGET.split('dataset.supportSurface').length - 1;
     assert.strictEqual(writers, 1, 'exactly one place writes the surface attribute');
-    assert.match(WIDGET, /body\.classList\.toggle\('ns-enabled', value === 'native'\)/,
-        'the legacy `ns-enabled` marker is DERIVED from the surface, never set independently');
+    assert.doesNotMatch(WIDGET, /classList\.(add|remove|toggle)\('ns-enabled'/,
+        'the widget keeps no second marker');
+    assert.doesNotMatch(INDEX, /body\.ns-enabled\s+\./,
+        'the stylesheet keys on the attribute alone - no class a body.className assignment can wipe');
 
     // The host page must not poke the visibility of either launcher directly.
     assert.doesNotMatch(INDEX, /supportWidget\.style\.display\s*=/,
         'no inline style on the legacy widget');
-    assert.doesNotMatch(INDEX, /classList\.(add|remove)\('ns-enabled'\)/,
-        'the host never toggles the native marker itself');
+    assert.doesNotMatch(INDEX, /classList\.(add|remove|toggle)\('ns-enabled'/,
+        'the host never toggles a second marker');
 
     // And the stylesheet must cover the union: each surface hides the other one.
     const rules = INDEX.slice(INDEX.indexOf('body[data-support-surface="native"]'),
-        INDEX.indexOf('body.ns-enabled .support-widget{display:none}'));
+        INDEX.indexOf('.ns-badge{min-width'));
     assert.match(rules, /body\[data-support-surface="native"\] \.support-widget,/,
         'native hides the legacy assistant');
     assert.match(rules, /body\[data-support-surface="pending"\] \.support-widget\{display:none\}/,
@@ -387,4 +388,146 @@ test('S13 the controller is the single writer, and both sides go through it', ()
     h.sandbox.APP.nativeSupport = false;
     h.widget().sync();
     assert.deepStrictEqual(h.controller.calls, ['native', 'legacy']);
+});
+
+// ---------------------------------------------------------------------------
+// The two lifecycle fixes from the pre-merge audit (2026-11-26)
+// ---------------------------------------------------------------------------
+
+/** Brace-matched slice of a top-level `function name(...) {}` from index.html. */
+function sliceFunction(src, name) {
+    let start = src.indexOf('function ' + name + '(');
+    assert.ok(start >= 0, name + ' must exist');
+    if (src.slice(Math.max(0, start - 6), start) === 'async ') start -= 6;
+    let i = src.indexOf('{', start);
+    let depth = 0;
+    for (; i < src.length; i++) {
+        if (src[i] === '{') depth++;
+        else if (src[i] === '}') { depth--; if (depth === 0) return src.slice(start, i + 1); }
+    }
+    throw new Error(name + ' is not brace-matchable');
+}
+
+/** The real KxSupportSurface object literal, evaluated in a fake document. */
+function controllerIn(body, panel) {
+    const src = INDEX.slice(INDEX.indexOf('var KxSupportSurface = {'),
+        INDEX.indexOf('window.KxSupportSurface = KxSupportSurface;'));
+    assert.ok(src.length > 400, 'controller found');
+    const sandbox = {
+        document: { body, getElementById: (id) => (id === 'supportPanel' ? panel : null) },
+        window: {},
+        // The watchdog is HELD, not fired: a synchronous timer would turn every
+        // pending state into legacy immediately and hide what is being asserted.
+        setTimeout: () => 1,
+        clearTimeout: () => {}
+    };
+    vm.createContext(sandbox);
+    vm.runInContext(src + '\nthis.__c = KxSupportSurface;', sandbox);
+    return sandbox.__c;
+}
+
+function fakeBody() {
+    return { dataset: {}, classList: { _c: new Set(), add(c) { this._c.add(c); }, remove(c) { this._c.delete(c); }, contains(c) { return this._c.has(c); } } };
+}
+function fakePanel() {
+    return { classList: { _c: new Set(['open']), add(c) { this._c.add(c); }, remove(c) { this._c.delete(c); }, contains(c) { return this._c.has(c); } } };
+}
+
+test('S14 leaving `legacy` CLOSES an already-open legacy panel (not just hides it)', () => {
+    const body = fakeBody();
+    const panel = fakePanel();
+    const cx = controllerIn(body, panel);
+    assert.strictEqual(panel.classList.contains('open'), true, 'precondition: the panel is open');
+
+    cx.set('pending');
+    assert.strictEqual(panel.classList.contains('open'), false, 'pending closes it');
+    assert.strictEqual(body.dataset.supportSurface, 'pending');
+
+    panel.classList.add('open');                 // reopened by the customer
+    cx.set('native');
+    assert.strictEqual(panel.classList.contains('open'), false, 'the handover closes it again');
+    assert.strictEqual(body.dataset.supportSurface, 'native');
+
+    // A `legacy` value must NOT close anything: that surface owns the panel.
+    panel.classList.add('open');
+    cx.set('legacy');
+    assert.strictEqual(panel.classList.contains('open'), true, 'legacy leaves the assistant alone');
+});
+
+test('S15 the controller keeps no class marker, so a body.className assignment cannot desync it', () => {
+    const body = fakeBody();
+    const cx = controllerIn(body, fakePanel());
+    cx.set('native');
+    assert.deepStrictEqual(Array.from(body.classList._c), [], 'no class is written');
+    // `setMode()` does `document.body.className = 'mode-live'` on every render; the
+    // surface lives in the data attribute, which that assignment cannot touch.
+    assert.strictEqual(body.dataset.supportSurface, 'native');
+    assert.doesNotMatch(INDEX, /document\.body\.classList\.toggle\('ns-enabled'/);
+});
+
+test('S16 logout resets the legacy assistant (panel, input, transcript, epoch)', () => {
+    const fn = sliceFunction(INDEX, 'resetLegacySupportChat') + '\n' + sliceFunction(INDEX, 'legacySupportEpoch');
+    const panel = fakePanel();
+    const input = { value: 'PREVIOUS-ACCOUNT-SECRET' };
+    const chat = {
+        _html: '',
+        set innerHTML(v) { this._html = v; this._bubble = null; },
+        get innerHTML() { return this._html; },
+        querySelector() { this._bubble = this._bubble || { textContent: '' }; return this._bubble; }
+    };
+    const sandbox = {
+        APP: {},
+        t: (k) => (k === 'support.welcome' ? 'WELCOME' : k),
+        document: { getElementById: (id) => ({ supportPanel: panel, supportInput: input, chatMessages: chat }[id] || null) },
+        Number, Object, String
+    };
+    vm.createContext(sandbox);
+    vm.runInContext(fn, sandbox);
+    const before = sandbox.APP.legacySupportEpoch || 0;
+
+    sandbox.resetLegacySupportChat();
+
+    assert.strictEqual(panel.classList.contains('open'), false, 'the panel is closed');
+    assert.strictEqual(input.value, '', 'the draft is discarded');
+    assert.ok(chat.innerHTML.indexOf('PREVIOUS-ACCOUNT-SECRET') === -1, 'the transcript is gone');
+    assert.strictEqual(chat.querySelector().textContent, 'WELCOME', 'just the welcome is left');
+    assert.strictEqual(sandbox.APP.legacySupportEpoch, before + 1, 'the epoch is bumped');
+    // Logout must actually call it.
+    const logoutAt = INDEX.indexOf("APP.nativeSupport = false;\n            APP.nativeSupportKnown = true;");
+    assert.ok(logoutAt > 0, 'logout block located');
+    assert.match(INDEX.slice(logoutAt, logoutAt + 900), /resetLegacySupportChat\(\)/,
+        'logout resets the legacy assistant');
+});
+
+test('S17 an in-flight legacy reply cannot land in the next session', () => {
+    const fn = sliceFunction(INDEX, 'sendSupportMessage');
+    assert.match(fn, /const epoch = legacySupportEpoch\(\);/);
+    assert.match(fn, /const stale = function\(\) \{ return epoch !== legacySupportEpoch\(\); \};/);
+    const guards = (fn.match(/if \(stale\(\)\) return;/g) || []).length;
+    assert.strictEqual(guards, 2, 'guarded after the awaited reply AND before the keyword reply');
+    // The guard runs before every append that follows the await.
+    assert.ok(fn.indexOf('if (stale()) return;') < fn.indexOf("t('support.reply.bot')"),
+        'the keyword answers are unreachable for a stale continuation');
+});
+
+test('S18 the messenger refuses to open while the legacy assistant owns support', () => {
+    // Legacy surface (the flag is off / not resolved): opening the messenger would
+    // put a second support surface on screen, so it declines and the caller falls
+    // back to the static acknowledgement.
+    const h = boot({ app: { nativeSupport: false } });
+    h.widget().sync();
+    assert.strictEqual(h.widget().surface(), 'legacy');
+    assert.strictEqual(h.widget().open(), false, 'open() refuses');
+    assert.strictEqual(h.panels().length, 0, 'no messenger panel was even built');
+
+    // On its own surface it opens normally.
+    h.sandbox.APP.nativeSupport = true;
+    h.widget().sync();
+    assert.strictEqual(h.widget().surface(), 'native');
+    assert.strictEqual(h.widget().open(), true, 'open() succeeds on the native surface');
+    assert.strictEqual(h.panels().length, 1);
+
+    // And the host hands over only when the messenger really opened.
+    assert.match(INDEX, /if \(NativeSupport\.open\(\) !== false\) return true;/,
+        'handOverToHumanSupport uses the refusal instead of claiming success');
 });

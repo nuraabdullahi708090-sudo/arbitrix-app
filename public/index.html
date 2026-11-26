@@ -5305,13 +5305,16 @@ body:has(#metaConsentBanner) .ns-launcher{bottom:250px}
      native  - the messenger; the legacy assistant is removed from the layout.
      legacy  - the floating assistant; the messenger launcher cannot appear.
    Hiding by rule (never by inline style) leaves the legacy widget's own state
-   untouched, so flipping back to 'legacy' restores it exactly. `ns-enabled` is
-   kept as the derived marker for the native surface (other rules key on it). */
+   untouched, so flipping back to 'legacy' restores it exactly.
+
+   The earlier `body.ns-enabled` class marker is GONE on purpose: the live-mode
+   render ASSIGNS `document.body.className = 'mode-live'`, which silently wiped it
+   while the attribute kept its value - two sources of truth in disagreement. The
+   attribute below is now the only one, so nothing can drift. */
 body[data-support-surface="native"] .support-widget,
 body[data-support-surface="pending"] .support-widget{display:none}
 body[data-support-surface="legacy"] .ns-launcher,
 body[data-support-surface="pending"] .ns-launcher{display:none}
-body.ns-enabled .support-widget{display:none}
 .ns-badge{min-width:18px;height:18px;border-radius:9px;background:#E5484D;color:#fff;font-size:11px;
   line-height:18px;text-align:center;padding:0 5px}
 .ns-panel{position:fixed;right:20px;bottom:20px;width:min(392px,calc(100vw - 32px));
@@ -26747,6 +26750,46 @@ function copyInvoiceRef() {
     });
 }
 
+/**
+ * Session epoch for the legacy assistant's DOM-only transcript.
+ *
+ * The legacy chat has no server conversation: its bubbles live in #chatMessages.
+ * Bumping the epoch (on logout / any surface handover) makes an in-flight reply
+ * addressed to the previous session inert, so a slow answer can never land in the
+ * next account's assistant.
+ */
+function legacySupportEpoch() {
+    try { return Number((typeof APP !== 'undefined' && APP && APP.legacySupportEpoch) || 0) || 0; } catch (e) { return 0; }
+}
+
+/**
+ * Put the legacy assistant back to its initial state: closed, empty input and just
+ * the welcome bubble.
+ *
+ * Called when the session ends. The assistant kept the previous account's typed
+ * text in the DOM, and with the messenger disabled the panel could even still be
+ * open on the auth page - so the next person on this device could read it.
+ */
+function resetLegacySupportChat() {
+    try { if (typeof APP !== 'undefined' && APP) APP.legacySupportEpoch = legacySupportEpoch() + 1; } catch (e) {}
+    try {
+        const panel = document.getElementById('supportPanel');
+        if (panel && panel.classList) panel.classList.remove('open');
+    } catch (e) {}
+    try {
+        const input = document.getElementById('supportInput');
+        if (input) input.value = '';
+    } catch (e) {}
+    try {
+        const chat = document.getElementById('chatMessages');
+        if (!chat) return;
+        chat.innerHTML = '<div class="chat-message agent"><div class="msg-bubble"></div></div>';
+        const bubble = chat.querySelector('.msg-bubble');
+        // textContent, never innerHTML: the welcome is a translation, not markup.
+        if (bubble) bubble.textContent = t('support.welcome');
+    } catch (e) {}
+}
+
 function toggleSupport() {
     try {
         // HUMAN-ONLY SUPPORT: the floating assistant no longer answers questions.
@@ -26883,6 +26926,11 @@ function sendSupportMessage() {
         const msg = getEl('supportInput').value.trim();
         if(!msg) return;
         const chat = getEl('chatMessages');
+        // Pinned to THIS session: if the session ends while the answer is in
+        // flight, the continuation is dropped instead of appending to the next
+        // account's assistant.
+        const epoch = legacySupportEpoch();
+        const stale = function() { return epoch !== legacySupportEpoch(); };
         chat.innerHTML += '<div class="chat-message user"><div class="msg-bubble">' + escapeSupportText(msg) + '</div></div>';
         getEl('supportInput').value = '';
         chat.scrollTop = chat.scrollHeight;
@@ -26895,6 +26943,7 @@ function sendSupportMessage() {
                 && !!localStorage.getItem('jwt_token');
             if (canUseBackend) {
                 const answered = await requestSupportReply(msg);
+                if (stale()) return;
                 if (answered && answered.text) {
                     chat.innerHTML += '<div class="chat-message agent"><div class="msg-bubble">' + escapeSupportText(answered.text) + '</div></div>';
                     chat.scrollTop = chat.scrollHeight;
@@ -26910,6 +26959,7 @@ function sendSupportMessage() {
                     return;
                 }
             }
+            if (stale()) return;
             let reply = '';
             const lower = msg.toLowerCase();
             // Keyword matching for the supported topics (unchanged). The bot and
@@ -26990,8 +27040,10 @@ function handOverToHumanSupport() {
         if (legacy && legacy.classList) legacy.classList.remove('open');
         if (typeof NativeSupport !== 'undefined' && NativeSupport
             && typeof NativeSupport.open === 'function') {
-            NativeSupport.open();
-            return true;
+            // open() refuses unless the messenger is the CURRENT surface (it would
+            // otherwise show two support surfaces at once); when it refuses, the
+            // static acknowledgement below is the honest answer.
+            if (NativeSupport.open() !== false) return true;
         }
     } catch (e) { /* fall through to the static acknowledgement */ }
     // The messenger script could not open (blocked/cached/older page): still tell
@@ -27076,7 +27128,7 @@ async function syncWalletFromServer() {
             // Adopted on EVERY session sync, not only on signup: the flag used to be
             // assigned in the registration handler alone, so a returning customer
             // (login, refresh, restored session) kept `APP.nativeSupport` undefined,
-            // `body.ns-enabled` was never applied, and the LEGACY floating assistant
+            // the native surface was never applied, and the LEGACY floating assistant
             // stayed the support surface - where a human reply can never appear.
             // Display only: every support route re-checks the flag server-side.
             if (meData) {
@@ -27683,6 +27735,11 @@ async function initApp() {
             APP.nativeSupport = false;
             APP.nativeSupportKnown = true;
             try { if (window.NativeSupport && typeof NativeSupport.sync === 'function') NativeSupport.sync(); } catch (err) {}
+            // The legacy assistant is the surface whenever the messenger is off
+            // (the default), and its chat is DOM-only: without this the previous
+            // account's typed text - and possibly an open panel - faced the next
+            // visitor of this tab.
+            try { if (typeof resetLegacySupportChat === 'function') resetLegacySupportChat(); } catch (err) {}
 
             // Logout is an explicit session end, so the landing page must not
             // keep a logged-in-looking UI (hidden Create Account / Sign In, a
@@ -30562,7 +30619,7 @@ applyAuthEntryIntent();
  *   legacy  - the floating assistant; the messenger launcher cannot appear.
  *
  * This object owns the APPLICATION of that decision (the single writer of the
- * attribute, the `ns-enabled` marker and the pending watchdog). The DERIVATION -
+ * attribute, the legacy-panel close and the pending watchdog). The DERIVATION -
  * which surface this session gets - lives in NativeSupport.sync(), which reads
  * the flag and calls set(). It lives here rather than in the messenger module
  * because that module is deferred: the first startup pass runs before it exists,
@@ -30581,11 +30638,19 @@ var KxSupportSurface = {
         var value = (this.SURFACES[next]) ? next : 'legacy';
         this.current = value;
         try {
-            if (document.body) {
-                if (document.body.dataset) document.body.dataset.supportSurface = value;
-                if (document.body.classList) document.body.classList.toggle('ns-enabled', value === 'native');
-            }
+            if (document.body && document.body.dataset) document.body.dataset.supportSurface = value;
         } catch (e) {}
+        // The legacy assistant is CLOSED, not merely hidden, whenever it stops
+        // being the surface. Hiding the widget leaves `#supportPanel.open` behind:
+        // its `body:has(#supportPanel.open)` rules keep applying to an invisible
+        // panel, and the next `legacy` transition (logout) would restore the panel
+        // already open - showing the previous session's transcript.
+        if (value !== 'legacy') {
+            try {
+                var panel = document.getElementById('supportPanel');
+                if (panel && panel.classList) panel.classList.remove('open');
+            } catch (e) {}
+        }
         if (value === 'pending' && this.timer) {
             // Already waiting: keep the ORIGINAL deadline. Re-arming on every
             // repeated sync() (the module syncs again 2.5s after load) would push
