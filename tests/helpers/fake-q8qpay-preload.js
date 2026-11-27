@@ -21,6 +21,19 @@
  *                 isTest, reference, id} | { __error: 'timeout' }
  *     credit:    {success:true, new_balance, is_first_deposit} | {duplicate:true}
  *              | {success:false, error:'...'} | {__rpcError:'...'}
+ *     createInvoice: provider answer for POST /api/v1/invoices
+ *              | {status: 400|403|429|500, body:{...}}  (a refusal)
+ *              | {__throw: 'message'}                   (network failure)
+ *              | {__abort: true}                        (our own timeout)
+ *              | {body: {...}}                          (success; defaults are fine)
+ *     insertError:  {code, message} | null  (payment_invoices INSERT fails)
+ *     updateError:  {status, code, message} | null  (any payment_invoices PATCH fails)
+ *     markFailedError: {status, code, message} | null
+ *              (only the PATCH that sets status='failed' fails)
+ *     markFailedThrow: 'message' | null
+ *              (the PATCH that sets status='failed' THROWS instead of resolving -
+ *               what a missing client or a transport failure inside supabase-js
+ *               looks like)
  *     creditOnce: true  => the fake RPC behaves like the real one: the first call
  *                          credits, any later call for the same invoice reports
  *                          duplicate (models credit_payment_safe's idempotency)
@@ -31,6 +44,7 @@
  *     {"kind":"insert","table":"webhook_logs","row":{..}}
  *     {"kind":"update","table":"payment_invoices","data":{..},"query":..}
  *     {"kind":"provider_get","id":".."}
+ *     {"kind":"provider_create","reference":"..","amount":N,"assetCode":".."}
  *
  * Nothing here touches the network: a non-Supabase, non-q8qpay host is refused.
  */
@@ -127,6 +141,41 @@ globalThis.fetch = async function fakeFetch(input, init) {
     if (parsed.pathname.indexOf('/api/v1/invoices/') === 0 && method === 'GET') {
       return providerResponse(state.provider);
     }
+    if (parsed.pathname === '/api/v1/invoices' && method === 'POST') {
+      const createBody = JSON.parse((init && init.body) || '{}');
+      emit({
+        kind: 'provider_create',
+        reference: createBody.reference,
+        amount: createBody.amountUsdt,
+        assetCode: createBody.assetCode
+      });
+      const answer = state.createInvoice || {};
+      if (answer.__throw) {
+        // What fetch rejects with when the network fails.
+        const err = new Error(answer.__throw);
+        err.name = answer.__throwName || 'TypeError';
+        throw err;
+      }
+      if (answer.__abort) {
+        const err = new Error('This operation was aborted');
+        err.name = 'AbortError';
+        throw err;
+      }
+      if (answer.status && answer.status >= 400) {
+        return respond(answer.status, answer.body || { error: 'provider refused' });
+      }
+      return respond(200, answer.body || {
+        id: 'q8q-created',
+        reference: createBody.reference,
+        status: 'pending',
+        assetCode: createBody.assetCode || 'USDT_TRC20',
+        payoutAddress: 'TXyzPayout',
+        amountUsdtExact: String(Number(createBody.amountUsdt) + 0.0037),
+        createdAt: '2026-11-01T00:00:00Z',
+        expiresAt: '2026-12-31T00:00:00Z',
+        whiteLabel: { networkLabel: 'Tron (TRC20)', qrData: 'tron:' + createBody.reference }
+      });
+    }
     emit({ kind: 'provider_other', method, path: parsed.pathname });
     return respond(404, { message: 'not modelled' });
   }
@@ -173,9 +222,34 @@ globalThis.fetch = async function fakeFetch(input, init) {
       }
       return wantsObject(headers) ? respond(200, state.invoice) : respond(200, [state.invoice]);
     }
+    if (method === 'POST') {
+      const body = JSON.parse((init && init.body) || '{}');
+      emit({ kind: 'insert', table: 'payment_invoices', row: body });
+      if (state.insertError) {
+        return respond(state.insertError.status || 400, {
+          code: state.insertError.code || '23502',
+          message: state.insertError.message || 'insert failed'
+        });
+      }
+      const row = Object.assign({ id: (state.invoice && state.invoice.id) || 77 }, body);
+      return wantsObject(headers) ? respond(201, row) : respond(201, [row]);
+    }
     if (method === 'PATCH') {
       const body = JSON.parse((init && init.body) || '{}');
       emit({ kind: 'update', table: 'payment_invoices', data: body, query });
+      if (body.status === 'failed' && state.markFailedThrow) {
+        throw new Error(state.markFailedThrow);
+      }
+      // A database refusal is a resolved `{ error }` for supabase-js, never a throw.
+      const failure = (body.status === 'failed' && state.markFailedError)
+        ? state.markFailedError
+        : state.updateError;
+      if (failure) {
+        return respond(failure.status || 400, {
+          code: failure.code || '23514',
+          message: failure.message || 'update failed'
+        });
+      }
       return respond(204, null);
     }
     return respond(200, []);

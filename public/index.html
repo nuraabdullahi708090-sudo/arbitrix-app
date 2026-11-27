@@ -24497,17 +24497,18 @@ async function requestDepositAddress() {
     });
 
     let invoice;
+    // The body carries a machine-readable code; the raw server text is never used.
+    const data = await response.json().catch(() => null);
     if (response.ok) {
-      const data = await response.json();
-      if (data.success && data.invoice) {
+      if (data && data.success && data.invoice) {
         invoice = data.invoice;
       } else {
-        throw depositInvoiceError(response.status);
+        throw depositInvoiceError(response.status, data);
       }
     } else {
-      // The server's own message is NEVER rendered: the HTTP status alone picks
-      // a safe, translated message below.
-      throw depositInvoiceError(response.status);
+      // The server's own message is NEVER rendered: the code (with the HTTP
+      // status as a fallback) picks a safe, translated message below.
+      throw depositInvoiceError(response.status, data);
     }
 
     currentInvoiceId = invoice.id;
@@ -24526,13 +24527,29 @@ async function requestDepositAddress() {
   }
 }
 
-// Map an invoice-creation failure to ONE safe message key. Only the HTTP status
-// is used: the response body (which may contain provider text) never reaches
-// the screen, a log line, or an analytics event.
-function depositInvoiceError(status) {
+// Map an invoice-creation failure to ONE safe message key.
+//
+// The server now answers 400 only for the customer's own input, 502 when the
+// payment provider refused the request and 503 when it could not serve us, each
+// with a stable code. The CODE decides the message (a status fallback covers an
+// older server); the response body's text is never rendered, logged or sent to
+// analytics - only its `code` field is read.
+function depositInvoiceError(status, body) {
+  const code = (body && typeof body.code === 'string') ? body.code : '';
   let messageKey = 'deposit.generateError';
   let retryable = true;
-  if (status === 429) {
+  if (code === 'PAYMENT_PROVIDER_REJECTED' || code === 'PAYMENT_PROVIDER_UNAVAILABLE'
+      || code === 'PAYMENT_PROVIDER_TIMEOUT' || code === 'PAYMENT_PROVIDER_INVALID_RESPONSE') {
+    // The provider's fault, not the customer's amount. "Try again" is offered.
+    messageKey = 'deposit.errUnavailable';
+  } else if (code === 'PAYMENT_PROVIDER_ACCOUNT') {
+    // Our provider account/credentials need an operator: retrying cannot help.
+    messageKey = 'deposit.errUnavailable';
+    retryable = false;
+  } else if (code === 'PAYMENT_INVALID_AMOUNT' || code === 'PAYMENT_INVALID_CURRENCY'
+      || code === 'PAYMENT_INVALID_NETWORK') {
+    messageKey = 'deposit.errInvalid';
+  } else if (status === 429) {
     messageKey = 'deposit.errRateLimited';
   } else if (status === 401 || status === 403) {
     messageKey = 'deposit.errSession';
@@ -24542,6 +24559,10 @@ function depositInvoiceError(status) {
   } else if (status >= 500) {
     messageKey = 'deposit.errUnavailable';
   }
+  // The server is the authority on whether retrying can help: a provider 409
+  // ("duplicate reference") arrives with retryable:false because a retry would
+  // create a SECOND invoice while the first one still exists.
+  if (body && body.retryable === false) retryable = false;
   const err = new Error(messageKey);
   err.depositMessageKey = messageKey;
   err.retryable = retryable;

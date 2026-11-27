@@ -24,6 +24,7 @@
 
 const { createClient } = require('@supabase/supabase-js');
 const crypto = require('crypto');
+const { isDefinitiveProviderFailure, PaymentError, PAYMENT_ERROR_CODES } = require('./PaymentError');
 
 // Validate required environment variables
 const requiredEnvVars = ['SUPABASE_URL', 'SUPABASE_SERVICE_KEY'];
@@ -168,13 +169,19 @@ class PaymentService {
         // Validate inputs
         if (!userId) throw new Error('User ID is required');
         if (!amount || amount < CONFIG.MIN_DEPOSIT_USD) {
-            throw new Error(`Minimum deposit is ${CONFIG.MIN_DEPOSIT_USD}`);
+            throw new PaymentError(PAYMENT_ERROR_CODES.INVALID_AMOUNT, {
+                httpStatus: 400, retryable: true, providerMessage: `below ${CONFIG.MIN_DEPOSIT_USD}`
+            });
         }
         if (!CONFIG.SUPPORTED_CURRENCIES.includes(currency)) {
-            throw new Error(`Unsupported currency: ${currency}`);
+            throw new PaymentError(PAYMENT_ERROR_CODES.INVALID_CURRENCY, {
+                httpStatus: 400, retryable: false, providerMessage: `unsupported ${currency}`
+            });
         }
         if (!CONFIG.NETWORKS[network]) {
-            throw new Error(`Unsupported network: ${network}`);
+            throw new PaymentError(PAYMENT_ERROR_CODES.INVALID_NETWORK, {
+                httpStatus: 400, retryable: false, providerMessage: `unsupported ${network}`
+            });
         }
 
         // Generate internal invoice ID
@@ -252,21 +259,33 @@ class PaymentService {
             } else if (isQ8qpay) {
                 // Q8QPay: white-label invoice. Customer pays USDT (TRC20) directly
                 // to the returned payoutAddress. No redirect to q8qpay hosted checkout.
-                const q8qpayResult = await provider.createInvoice({
-                    userId,
-                    amount,
-                    currency,
-                    network,
-                    orderId: invoiceId,
-                    ipAddress,
-                    // Use the server's public BASE_URL for the per-invoice webhook.
-                    // (provider falls back to Q8QPAY_CALLBACK_URL if omitted)
-                    callbackUrl: process.env.Q8QPAY_CALLBACK_URL
-                });
+                let q8qpayResult;
+                try {
+                    q8qpayResult = await provider.createInvoice({
+                        userId,
+                        amount,
+                        currency,
+                        network,
+                        orderId: invoiceId,
+                        ipAddress,
+                        // Use the server's public BASE_URL for the per-invoice webhook.
+                        // (provider falls back to Q8QPAY_CALLBACK_URL if omitted)
+                        callbackUrl: process.env.Q8QPAY_CALLBACK_URL
+                    });
+                } catch (providerError) {
+                    await this.handleProviderCreateFailure(dbInvoice, invoiceId, providerError);
+                    throw providerError;
+                }
 
                 // Persist the q8qpay invoice UUID, payout address, exact crypto
                 // amount and q8qpay expiry for audit/reconciliation and polling.
-                await supabase
+                //
+                // supabase-js RESOLVES with `{ error }`; it does not throw. A failed
+                // write here means our row is missing the payout details while the
+                // provider invoice DOES exist and the customer can pay it. The webhook
+                // settles from the provider's own record, so this must not fail the
+                // customer's payment - it is logged for reconciliation instead.
+                const { error: persistError } = await supabase
                     .from('payment_invoices')
                     .update({
                         provider_invoice_ref: q8qpayResult.providerInvoiceId,
@@ -278,6 +297,16 @@ class PaymentService {
                         updated_at: new Date().toISOString()
                     })
                     .eq('id', dbInvoice.id);
+
+                if (persistError) {
+                    console.error(JSON.stringify({
+                        event: 'q8qpay_invoice_persist_failed',
+                        invoiceId,
+                        providerInvoiceId: q8qpayResult.providerInvoiceId,
+                        code: persistError.code || null,
+                        message: persistError.message || null
+                    }));
+                }
 
                 result = {
                     id: invoiceId,
@@ -355,6 +384,71 @@ class PaymentService {
             console.error(`[PaymentService] Error creating invoice:`, error);
             throw error;
         }
+    }
+
+    /**
+     * Decide what happens to the local invoice row when the provider call fails.
+     *
+     * DEFINITIVE failure (the provider answered and did not create an invoice -
+     * a 4xx refusal): the row is marked `failed`. It can never be paid, so it must
+     * stop looking like a live deposit (the admin reconciliation lists stale
+     * `pending` rows, and an abandoned row would sit there for an hour).
+     *
+     * AMBIGUOUS failure (5xx, timeout, connection reset, an unusable 2xx): the
+     * provider may hold an invoice for this reference. The row stays `pending`
+     * so a late webhook can still credit it - we never declare a deposit dead on
+     * a signal we do not understand.
+     *
+     * supabase-js RESOLVES with `{ error }` instead of throwing, so the result is
+     * inspected explicitly. A failed bookkeeping write is logged and never masks
+     * the original provider error.
+     *
+     * @returns {Promise<{markedFailed: boolean, ambiguous: boolean}>}
+     */
+    async handleProviderCreateFailure(dbInvoice, invoiceId, error) {
+        const definitive = isDefinitiveProviderFailure(error);
+        const base = {
+            invoiceId,
+            provider: (error && error.provider) || this.activeProviderName || null,
+            providerError: (error && error.code) || null,
+            providerStatus: (error && error.providerStatus) || null
+        };
+
+        if (!definitive) {
+            console.warn(JSON.stringify(Object.assign({ event: 'invoice_provider_outcome_ambiguous', markedFailed: false }, base)));
+            return { markedFailed: false, ambiguous: true };
+        }
+
+        // supabase-js usually RESOLVES with `{ error }`, but it can also THROW (no
+        // client configured, a transport-level failure inside the library). Either
+        // way this is bookkeeping: it must never replace the provider error the
+        // caller is about to report, or a provider refusal would surface to the
+        // customer as an internal 500. Both paths are logged and swallowed.
+        let markError = null;
+        let markThrew = null;
+        try {
+            const result = await supabase
+                .from('payment_invoices')
+                .update({ status: 'failed', updated_at: new Date().toISOString() })
+                .eq('id', dbInvoice.id);
+            markError = result && result.error;
+        } catch (thrown) {
+            markThrew = thrown;
+        }
+
+        if (markError || markThrew) {
+            console.error(JSON.stringify(Object.assign({
+                event: 'invoice_mark_failed_error',
+                markedFailed: false,
+                dbThrown: Boolean(markThrew),
+                dbError: (markError && markError.code) || (markThrew && markThrew.code) || null,
+                dbMessage: (markError && markError.message) || (markThrew && markThrew.message) || null
+            }, base)));
+            return { markedFailed: false, ambiguous: false };
+        }
+
+        console.warn(JSON.stringify(Object.assign({ event: 'invoice_provider_rejected', markedFailed: true }, base)));
+        return { markedFailed: true, ambiguous: false };
     }
 
     /**
