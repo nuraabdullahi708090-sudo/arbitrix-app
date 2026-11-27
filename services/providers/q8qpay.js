@@ -24,6 +24,13 @@
 
 const { ProviderInterface } = require('./base/ProviderInterface');
 const crypto = require('crypto');
+const {
+    PaymentError,
+    PAYMENT_ERROR_CODES,
+    classifyProviderResponse,
+    classifyProviderThrow,
+    classifyUnusableResponse
+} = require('../PaymentError');
 
 const API_BASE = 'https://q8qpay.com';
 
@@ -92,6 +99,13 @@ class Q8QPayProvider extends ProviderInterface {
         // Per-invoice callback URL; can be overridden per-invoice via params.callbackUrl
         this.callbackUrl = config.callbackUrl || process.env.Q8QPAY_CALLBACK_URL;
         this.baseUrl = API_BASE;
+        // A hung create-invoice call used to block the customer's request until the
+        // platform gave up, with no timeout of our own. Bounded here so a stalled
+        // provider surfaces as a retryable 503 instead of a spinner.
+        const configuredTimeout = Number(process.env.Q8QPAY_TIMEOUT_MS);
+        this.timeoutMs = Number.isFinite(configuredTimeout) && configuredTimeout >= 2000 && configuredTimeout <= 60000
+            ? configuredTimeout
+            : 20000;
 
         if (!this.apiKey) {
             console.warn('[Q8QPay] No API key configured - provider will not function');
@@ -174,29 +188,61 @@ class Q8QPayProvider extends ProviderInterface {
         requestBody.title = require('../brand').BRAND.name + ' Deposit';
         requestBody.description = `USDT (TRC20) deposit ${orderId}`;
 
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+
         try {
-            const response = await fetch(`${this.baseUrl}/api/v1/invoices`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${this.apiKey}`,
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(requestBody)
-            });
+            let response;
+            try {
+                response = await fetch(`${this.baseUrl}/api/v1/invoices`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${this.apiKey}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody),
+                    signal: controller.signal
+                });
+            } catch (transportError) {
+                // Network failure, DNS, reset or our own timeout. The provider MAY
+                // have created the invoice, so this is classified ambiguous and the
+                // local row is left recoverable.
+                const classified = classifyProviderThrow(transportError, 'q8qpay');
+                console.error('[Q8QPay] createInvoice transport failure:', JSON.stringify({
+                    event: 'q8qpay_create_transport_failure',
+                    code: classified.code,
+                    reference: orderId,
+                    detail: classified.providerMessage
+                }));
+                throw classified;
+            }
 
             if (!response.ok) {
                 const errText = await response.text().catch(() => '');
-                console.error('[Q8QPay] createInvoice error:', response.status, errText);
-                throw new Error(`Q8QPay API error: ${response.status} ${errText.substring(0, 200)}`);
+                const classified = classifyProviderResponse(response.status, errText, 'q8qpay');
+                console.error('[Q8QPay] createInvoice rejected:', JSON.stringify({
+                    event: 'q8qpay_create_rejected',
+                    providerStatus: response.status,
+                    code: classified.code,
+                    reference: orderId,
+                    body: classified.providerMessage
+                }));
+                throw classified;
             }
 
             const data = await response.json();
 
-            // Validate the fields we depend on for the white-label UI
+            // Validate the fields we depend on for the white-label UI. A 2xx with an
+            // unusable body still means the provider created the invoice, so the
+            // classification is marked ambiguous.
             if (!data.payoutAddress || !data.amountUsdtExact || !data.expiresAt) {
-                console.error('[Q8QPay] Unexpected invoice response:', JSON.stringify(data).substring(0, 300));
-                throw new Error('Q8QPay invoice response missing required white-label fields');
+                console.error('[Q8QPay] Unexpected invoice response:', JSON.stringify({
+                    event: 'q8qpay_create_unusable_body',
+                    reference: orderId,
+                    keys: Object.keys(data || {}).slice(0, 12)
+                }));
+                throw classifyUnusableResponse('q8qpay', 'missing payoutAddress/amountUsdtExact/expiresAt');
             }
 
             console.log(`[Q8QPay] Invoice created: ref=${orderId}, q8qid=${data.id}, payout=${data.payoutAddress.substring(0, 10)}...`);
@@ -224,8 +270,21 @@ class Q8QPayProvider extends ProviderInterface {
                 isTest: data.isTest === true
             };
         } catch (error) {
-            console.error('[Q8QPay] createInvoice error:', error);
-            throw error;
+            // Already classified (and already logged) above. Anything else is an
+            // unexpected failure in our own code: keep it visible, wrap it so the
+            // caller never sees raw text, and mark it ambiguous so nothing is
+            // marked failed on a signal we do not understand.
+            if (error instanceof PaymentError) throw error;
+            console.error('[Q8QPay] createInvoice unexpected error:', error && error.message);
+            throw new PaymentError(PAYMENT_ERROR_CODES.INTERNAL, {
+                httpStatus: 500,
+                retryable: true,
+                ambiguous: true,
+                provider: 'q8qpay',
+                providerMessage: error && error.message ? error.message : 'unknown'
+            });
+        } finally {
+            clearTimeout(timeout);
         }
     }
 

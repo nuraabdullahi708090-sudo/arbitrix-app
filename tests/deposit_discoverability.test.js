@@ -356,7 +356,10 @@ test('the error box shows translated text only and hides retry when it cannot he
 
 test('the invoice request never renders a server message and offers help', () => {
     const fn = extractFunction('requestDepositAddress');
-    assert.ok(/depositInvoiceError\(response\.status\)/.test(fn), 'the status selects the message');
+    assert.ok(/depositInvoiceError\(response\.status, data\)/.test(fn),
+        'the status AND the machine-readable code select the message');
+    assert.ok(/response\.json\(\)\.catch\(\(\) => null\)/.test(fn),
+        'an unparsable error body cannot break the failure path');
     assert.ok(!/translateBackendMessage\(data\.error/.test(fn), 'server text is no longer passed to the UI');
     assert.ok(!/showToast\(t\('deposit\.generateError'\)/.test(fn), 'the generic-only toast is gone');
     assert.ok(/showDepositInvoiceError\(error\)/.test(fn), 'the actionable box is used');

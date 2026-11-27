@@ -15,6 +15,7 @@ const { paymentService, PaymentService } = require('./services/PaymentService');
 const { nowPaymentsProvider } = require('./services/providers/nowpayments');
 const { paymentoProvider, PAYMENTO_STATUS } = require('./services/providers/paymento');
 const { q8qpayProvider, Q8QPAY_STATUS } = require('./services/providers/q8qpay');
+const { PAYMENT_ERROR_CODES, paymentErrorHttpResponse } = require('./services/PaymentError');
 const {
   createQ8qpaySettlement,
   OUTCOMES: Q8QPAY_OUTCOMES
@@ -5112,10 +5113,12 @@ app.post('/api/payment/create-invoice', authMiddleware, async (req, res) => {
     // deposit floor — it is NOT the $50 promotional credit.
     const MIN_DEPOSIT_AMOUNT = PLATFORM_MIN_DEPOSIT;
     
-    if (!amount || typeof amount !== 'number' || amount < MIN_DEPOSIT_AMOUNT) {
-      return res.status(400).json({ 
-        success: false, 
-        error: `Invalid amount: minimum deposit is $${MIN_DEPOSIT_AMOUNT}` 
+    if (!amount || typeof amount !== 'number' || !isFinite(amount) || amount < MIN_DEPOSIT_AMOUNT) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid amount: minimum deposit is $${MIN_DEPOSIT_AMOUNT}`,
+        code: PAYMENT_ERROR_CODES.INVALID_AMOUNT,
+        retryable: true
       });
     }
     
@@ -5126,14 +5129,18 @@ app.post('/api/payment/create-invoice', authMiddleware, async (req, res) => {
     if (!['USDT', 'BTC', 'ETH'].includes(sanitizedCurrency)) {
       return res.status(400).json({ 
         success: false, 
-        error: 'Unsupported currency' 
+        error: 'Unsupported currency', 
+        code: PAYMENT_ERROR_CODES.INVALID_CURRENCY,
+        retryable: false
       });
     }
     
     if (!['TRC20', 'ERC20', 'BEP20', 'BTC', 'ETH'].includes(sanitizedNetwork)) {
       return res.status(400).json({ 
         success: false, 
-        error: 'Unsupported network' 
+        error: 'Unsupported network', 
+        code: PAYMENT_ERROR_CODES.INVALID_NETWORK,
+        retryable: false
       });
     }
     
@@ -5191,11 +5198,21 @@ app.post('/api/payment/create-invoice', authMiddleware, async (req, res) => {
       invoice: invoiceResponse
     });
   } catch (error) {
-    console.error('[API] Create invoice error:', error.message);
-    res.status(400).json({ 
-      success: false, 
-      error: 'Failed to create invoice' 
-    });
+    // 400 is reserved for the customer's own input (checked above). A provider
+    // refusal is 502, an unreachable/rate-limited/unauthorised provider is 503 and
+    // our own unexpected failure is 500, so the UI stops calling every failure a
+    // bad amount. The provider's own text never leaves the server.
+    const mapped = paymentErrorHttpResponse(error);
+    console.error('[API] Create invoice error:', JSON.stringify({
+      code: mapped.body.code,
+      status: mapped.status,
+      providerStatus: error && error.providerStatus ? error.providerStatus : null,
+      detail: error && error.message ? String(error.message).slice(0, 300) : null
+    }));
+    if (mapped.status === 503 && mapped.body.retryable) {
+      res.set('Retry-After', '30');
+    }
+    res.status(mapped.status).json(mapped.body);
   }
 });
 
