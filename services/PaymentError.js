@@ -125,7 +125,8 @@ function providerError(code, httpStatus, retryable, ambiguous, status, bodyText,
  *
  * | provider status        | code                  | we answer | retryable | ambiguous |
  * |------------------------|-----------------------|-----------|-----------|-----------|
- * | 400 / 409 / 422 / 4xx  | PROVIDER_REJECTED     | 502       | no        | no        |
+ * | 400 / 422 / other 4xx  | PROVIDER_REJECTED     | 502       | no        | no        |
+ * | 409                    | PROVIDER_REJECTED     | 502       | no        | YES       |
  * | 401 / 403              | PROVIDER_ACCOUNT      | 503       | no        | no        |
  * | 429                    | PROVIDER_UNAVAILABLE  | 503       | yes       | no        |
  * | 408                    | PROVIDER_TIMEOUT      | 503       | yes       | yes       |
@@ -134,11 +135,26 @@ function providerError(code, httpStatus, retryable, ambiguous, status, bodyText,
  * `retryable: false` for 401/403 because pressing "Try again" cannot fix a key or
  * an account state - an operator has to. It is still `ambiguous: false`: a
  * refused request was not turned into an invoice.
+ *
+ * 409 IS SPECIAL - it is the one 4xx that is NOT ambiguous:false. Q8QPay documents
+ * 409 as "Duplicate reference", i.e. an invoice with OUR reference ALREADY EXISTS.
+ * That is the opposite of "no invoice was created": refunding the reference to the
+ * retry/queue/replay path means the invoice can be paid while our row says failed.
+ * See docs/payments/Q8QPAY-INVOICE-CREATE-ERRORS.md for the full reasoning and the
+ * settlement paths that a `failed` row would lock out.
  */
 function classifyProviderResponse(status, bodyText, provider) {
     const s = Number(status);
     const safeBody = bodyText ? sanitizeProviderText(bodyText) : '';
 
+    if (s === 409) {
+        // "Duplicate reference": the provider already holds an invoice for this
+        // reference. The call created nothing, but an invoice exists - so the local
+        // row must stay recoverable (never marked failed) and no automatic retry is
+        // offered (a retry would create a SECOND payable invoice with a new
+        // reference while the first stays invisible to us).
+        return providerError(PAYMENT_ERROR_CODES.PROVIDER_REJECTED, 502, false, true, s, safeBody, provider);
+    }
     if (s === 401 || s === 403) {
         return providerError(PAYMENT_ERROR_CODES.PROVIDER_ACCOUNT, 503, false, false, s, safeBody, provider);
     }

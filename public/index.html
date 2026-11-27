@@ -24559,6 +24559,10 @@ function depositInvoiceError(status, body) {
   } else if (status >= 500) {
     messageKey = 'deposit.errUnavailable';
   }
+  // The server is the authority on whether retrying can help: a provider 409
+  // ("duplicate reference") arrives with retryable:false because a retry would
+  // create a SECOND invoice while the first one still exists.
+  if (body && body.retryable === false) retryable = false;
   const err = new Error(messageKey);
   err.depositMessageKey = messageKey;
   err.retryable = retryable;

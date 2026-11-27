@@ -30,6 +30,10 @@
  *     updateError:  {status, code, message} | null  (any payment_invoices PATCH fails)
  *     markFailedError: {status, code, message} | null
  *              (only the PATCH that sets status='failed' fails)
+ *     markFailedThrow: 'message' | null
+ *              (the PATCH that sets status='failed' THROWS instead of resolving -
+ *               what a missing client or a transport failure inside supabase-js
+ *               looks like)
  *     creditOnce: true  => the fake RPC behaves like the real one: the first call
  *                          credits, any later call for the same invoice reports
  *                          duplicate (models credit_payment_safe's idempotency)
@@ -233,6 +237,9 @@ globalThis.fetch = async function fakeFetch(input, init) {
     if (method === 'PATCH') {
       const body = JSON.parse((init && init.body) || '{}');
       emit({ kind: 'update', table: 'payment_invoices', data: body, query });
+      if (body.status === 'failed' && state.markFailedThrow) {
+        throw new Error(state.markFailedThrow);
+      }
       // A database refusal is a resolved `{ error }` for supabase-js, never a throw.
       const failure = (body.status === 'failed' && state.markFailedError)
         ? state.markFailedError

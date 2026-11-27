@@ -79,6 +79,25 @@ test('genuine input errors keep the amount message', () => {
     }
 });
 
+test('a 409 duplicate reference shows the honest message and offers no retry', () => {
+    // The server sends retryable:false because the provider already holds an invoice
+    // under our reference - retrying would create a second payable invoice.
+    const mapped = codeOf(depositInvoiceError(502, {
+        code: 'PAYMENT_PROVIDER_REJECTED',
+        retryable: false,
+        error: 'Duplicate reference'
+    }));
+    assert.strictEqual(mapped.messageKey, 'deposit.errUnavailable');
+    assert.strictEqual(mapped.retryable, false);
+});
+
+test('an explicit retryable:false from the server always wins', () => {
+    assert.strictEqual(codeOf(depositInvoiceError(503, { code: 'PAYMENT_PROVIDER_UNAVAILABLE', retryable: false })).retryable, false);
+    assert.strictEqual(codeOf(depositInvoiceError(400, { code: 'PAYMENT_INVALID_NETWORK', retryable: false })).retryable, false);
+    // ...and retryable:true can never resurrect a case that must not be retried
+    assert.strictEqual(codeOf(depositInvoiceError(401, { retryable: true })).retryable, false);
+});
+
 test('the code wins over the status when both are present', () => {
     // A provider refusal answered 502 must not fall through to the generic 5xx path
     // only by luck: the code decides.

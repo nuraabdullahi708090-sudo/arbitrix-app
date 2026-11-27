@@ -34,8 +34,8 @@ const { Q8QPayProvider } = require('../services/providers/q8qpay');
 // The classification table
 // ---------------------------------------------------------------------------
 
-test('a provider 400/409/422 is a definite refusal: 502, not retryable, not ambiguous', () => {
-    for (const status of [400, 409, 422]) {
+test('a provider 400/422 is a definite refusal: 502, not retryable, not ambiguous', () => {
+    for (const status of [400, 422]) {
         const e = classifyProviderResponse(status, '{"error":"bad request"}', 'q8qpay');
         assert.strictEqual(e.code, CODES.PROVIDER_REJECTED, `status ${status}`);
         assert.strictEqual(e.httpStatus, 502);
@@ -43,6 +43,21 @@ test('a provider 400/409/422 is a definite refusal: 502, not retryable, not ambi
         assert.strictEqual(e.ambiguous, false, 'a refused request was not turned into an invoice');
         assert.strictEqual(e.providerStatus, status, 'the provider status is preserved');
     }
+});
+
+test('a provider 409 (duplicate reference) is AMBIGUOUS: an invoice with our reference exists', () => {
+    // Q8QPay: "409 Conflict - Duplicate reference". The call created nothing, but an
+    // invoice already exists under OUR reference - the one key the webhook uses to
+    // find our row. So the row must stay recoverable, and no retry is offered (a
+    // retry would create a second payable invoice).
+    const e = classifyProviderResponse(409, '{"error":"Duplicate reference"}', 'q8qpay');
+    assert.strictEqual(e.code, CODES.PROVIDER_REJECTED, 'the code is preserved');
+    assert.strictEqual(e.httpStatus, 502);
+    assert.strictEqual(e.providerStatus, 409, 'the provider status is preserved');
+    assert.strictEqual(e.retryable, false, 'a retry would create a second invoice');
+    assert.strictEqual(e.ambiguous, true, 'an invoice may already exist');
+    assert.strictEqual(isDefinitiveProviderFailure(e), false,
+        'a 409 must never let the local row be marked failed');
 });
 
 test('a provider 401/403 is an account problem: 503, not retryable, not ambiguous', () => {
@@ -194,6 +209,8 @@ test('input errors stay 400 with their own codes', () => {
 
 test('only a definitive provider refusal may mark the invoice failed', () => {
     assert.strictEqual(isDefinitiveProviderFailure(classifyProviderResponse(400, '', 'q8qpay')), true);
+    assert.strictEqual(isDefinitiveProviderFailure(classifyProviderResponse(409, '', 'q8qpay')), false,
+        '409 = an invoice already exists under our reference: keep the row recoverable');
     assert.strictEqual(isDefinitiveProviderFailure(classifyProviderResponse(403, '', 'q8qpay')), true);
     assert.strictEqual(isDefinitiveProviderFailure(classifyProviderResponse(429, '', 'q8qpay')), true);
     assert.strictEqual(isDefinitiveProviderFailure(classifyProviderResponse(500, '', 'q8qpay')), false, '5xx is ambiguous');
@@ -255,6 +272,24 @@ test('provider: a 400 refusal is preserved as 502/rejected with a sanitised body
         assert.strictEqual(e.ambiguous, false);
         assert.ok(!e.message.includes('live_abcdef123456'));
         assert.ok(e.message.includes('insufficient balance'));
+    } finally { s.restore(); }
+});
+
+test('provider: a 409 duplicate reference keeps its status and is ambiguous', async () => {
+    const p = newProvider();
+    const s = stubFetch(() => ({
+        ok: false,
+        status: 409,
+        text: async () => '{"error":"Duplicate reference","reference":"PD-DUP"}'
+    }));
+    try {
+        const e = await expectPaymentError(p.createInvoice(Object.assign({}, ORDER, { orderId: 'PD-DUP' })));
+        assert.strictEqual(e.code, CODES.PROVIDER_REJECTED);
+        assert.strictEqual(e.httpStatus, 502);
+        assert.strictEqual(e.providerStatus, 409);
+        assert.strictEqual(e.ambiguous, true);
+        assert.strictEqual(e.retryable, false);
+        assert.strictEqual(isDefinitiveProviderFailure(e), false);
     } finally { s.restore(); }
 });
 

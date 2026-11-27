@@ -220,6 +220,39 @@ test('a provider 403 (account suspended) is a 503, not retryable, and closes the
     assert.strictEqual(failed.length, 1, 'a refused request created no invoice, so the row is safe to close');
 });
 
+test('a provider 409 duplicate reference is a 502 and the row stays recoverable', async () => {
+    writeState(Object.assign({}, BASE_STATE, {
+        createInvoice: { status: 409, body: { error: 'Duplicate reference' } }
+    }));
+    const res = await createInvoice({ amount: 300, currency: 'USDT', network: 'TRC20' });
+
+    assert.strictEqual(res.status, 502, JSON.stringify(res.body));
+    assert.strictEqual(res.body.code, 'PAYMENT_PROVIDER_REJECTED', 'the original code is preserved');
+    assert.strictEqual(res.body.retryable, false, 'a retry would create a second payable invoice');
+
+    // 409 means an invoice with OUR reference already exists, so the local row must
+    // NOT be declared dead: a `failed` row is invisible to reconciliation and both
+    // the admin confirm route and the customer's manual check refuse it.
+    const failed = eventsOf('update').filter((u) => u.data.status === 'failed');
+    assert.strictEqual(failed.length, 0, 'a 409 must leave the invoice recoverable: ' + JSON.stringify(eventsOf('update')));
+});
+
+test('a thrown database error while marking the row failed does not mask the provider error', async () => {
+    // supabase-js can THROW (no client, transport failure). That must never replace
+    // the provider classification with an internal 500.
+    writeState(Object.assign({}, BASE_STATE, {
+        createInvoice: { status: 400, body: { error: 'refused' } },
+        markFailedThrow: 'connection reset by peer'
+    }));
+    const res = await createInvoice({ amount: 300, currency: 'USDT', network: 'TRC20' });
+
+    assert.strictEqual(res.status, 502, JSON.stringify(res.body));
+    assert.strictEqual(res.body.code, 'PAYMENT_PROVIDER_REJECTED', 'the provider error survives the bookkeeping failure');
+    assert.strictEqual(res.body.retryable, false);
+    assert.strictEqual(eventsOf('update').filter((u) => u.data.status === 'failed').length, 1,
+        'the write was attempted before it threw');
+});
+
 test('a provider 429 rate limit is a retryable 503 with Retry-After, and closes the row', async () => {
     writeState(Object.assign({}, BASE_STATE, {
         createInvoice: { status: 429, body: { error: 'Too Many Requests' } }

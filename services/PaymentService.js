@@ -419,17 +419,30 @@ class PaymentService {
             return { markedFailed: false, ambiguous: true };
         }
 
-        const { error: markError } = await supabase
-            .from('payment_invoices')
-            .update({ status: 'failed', updated_at: new Date().toISOString() })
-            .eq('id', dbInvoice.id);
+        // supabase-js usually RESOLVES with `{ error }`, but it can also THROW (no
+        // client configured, a transport-level failure inside the library). Either
+        // way this is bookkeeping: it must never replace the provider error the
+        // caller is about to report, or a provider refusal would surface to the
+        // customer as an internal 500. Both paths are logged and swallowed.
+        let markError = null;
+        let markThrew = null;
+        try {
+            const result = await supabase
+                .from('payment_invoices')
+                .update({ status: 'failed', updated_at: new Date().toISOString() })
+                .eq('id', dbInvoice.id);
+            markError = result && result.error;
+        } catch (thrown) {
+            markThrew = thrown;
+        }
 
-        if (markError) {
+        if (markError || markThrew) {
             console.error(JSON.stringify(Object.assign({
                 event: 'invoice_mark_failed_error',
                 markedFailed: false,
-                dbError: markError.code || null,
-                dbMessage: markError.message || null
+                dbThrown: Boolean(markThrew),
+                dbError: (markError && markError.code) || (markThrew && markThrew.code) || null,
+                dbMessage: (markError && markError.message) || (markThrew && markThrew.message) || null
             }, base)));
             return { markedFailed: false, ambiguous: false };
         }
