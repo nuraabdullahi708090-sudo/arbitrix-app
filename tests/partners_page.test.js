@@ -88,7 +88,11 @@ function funnelSlice() {
 // Contact column now opens the in-app chat instead of the Telegram bot, and the
 // landing page keeps no customer-facing Telegram support destination.
 // Previous pin: 06274563...20a643.
-const FUNNEL_SHA256 = '81dc1a622cdf85baa234066bc373f40a8444d301de7cff706725fb28860944fe';
+// Re-pinned 2026-11-28 for the APPROVED operating-license section: one card
+// above the footer (and a compact link on the auth screen) that opens
+// /operating-license. The /partners feature itself still touches no homepage
+// markup. Previous pin: 81dc1a62...0944fe.
+const FUNNEL_SHA256 = '68c91e72e095a27f99216f8531a467bc7c104be918342334c178600b479fb2c6';
 const PARTNER_HANDLE = '@AlexArbitrix';
 const PARTNER_HANDLE_2 = '@OliviaArbitrix';
 const OFFICIAL_SUPPORT = '@ArbitrixSupportBot';

@@ -21,7 +21,8 @@ const vm = require('node:vm');
 const ROOT = path.join(__dirname, '..');
 const INDEX = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-const DICT_SIZE = 1590; // demo mode removed: 1640 -> 1590 keys/locale
+const DICT_SIZE = 1595; // demo mode removed: 1640 -> 1590 -> 1595 keys/locale
+// +5 license.* keys for the operating-license section (dashboard, landing, auth).
 // 1590 keys/locale now = 1556 outside landing.testimonials.* plus the 24
 // landing.testimonials.* keys and the 2 bot.* engine-disclosure keys
 // (1574 + 24 + 2 = 1600). The most recent additions are the 8 deposit/withdrawal
@@ -43,7 +44,7 @@ const DICT_SIZE = 1590; // demo mode removed: 1640 -> 1590 keys/locale
 // (support.startChat / support.chatHint), i.e. -2.
 // Bumped by the 5 read-only admin reconciliation keys added with the Q8QPay
 // settlement work (1590 keys/locale; testimonials keys themselves unchanged).
-const BASE_OUTSIDE_TESTIMONIALS = 1539;
+const BASE_OUTSIDE_TESTIMONIALS = 1544;
   // carries primaryLabel/backupLabel/oliviaBtn/alexBtn/alexNote and dropped the two
   // retired deposit.crypto.* keys (net +3).
 

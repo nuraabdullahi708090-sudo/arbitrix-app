@@ -11476,3 +11476,51 @@ URL registration, Render env and the specific uncredited payment still need an o
   `#startHereCard`/`#promoCreditBanner`/Deposit/Withdraw intact, chart Current == Total
   Equity ($80.49) while Today's P&L stays $30.49 (not forced equal), and switching to 1H
   re-queries the server (start $74.40 / change +$6.09) instead of slicing a local buffer.
+
+
+## Operating License Viewer (2026-11-28, additive: page + route + section)
+
+- PUBLIC TRUST SURFACE. `public/operating-license.html` is served by
+  `GET /operating-license` (and `/operating-license/`), registered beside `/partners`
+  and BEFORE the SPA fallback. The document is
+  `public/license/kalderix-operating-license.jpg` (198,153 B, 853x1280, sha256
+  1b2e5595...b899): a byte-identical copy of the supplied attachment, served by
+  `express.static` with NO authentication, so the viewer works signed out. A new
+  `app.use('/license', ...)` answers a JSON 404 for a missing file - the same reason
+  as the existing `/video` guard, because the SPA fallback would otherwise answer
+  HTTP 200 with index.html.
+- IT IS AN IMAGE VIEWER, NOT PDF.js. The supplied license is a single-page JPEG, so
+  PDF.js would add a dependency and a rendering step for no fidelity gain. Pages are
+  declarative (`PAGES[]` in the inline script) and each renders as a `<figure>` with a
+  caption, so a multipage document is more entries and nothing else.
+- Viewer features: zoom 25-400% in 15% steps, Fit width / 100%, ctrl-or-cmd + wheel,
+  `+` / `-` / `0` / `1`, double-click to toggle, a scrolling document area, a
+  failed-load panel with Retry, and a real `<a href="/">Back to Dashboard</a>` that
+  upgrades to `history.back()` when the referrer is same-origin (so the dashboard view,
+  its scroll position and the session survive). NO download / save / export / print
+  control, no `<embed>`/`<object>`/`<iframe>`, no PDF chrome. The page states that the
+  viewer offers no such controls and makes NO copy-protection claim: hiding controls
+  does not prevent screenshots or copying.
+- SECTION. `.kx-license-card` (icon / title + description + meta / CTA in one grid row)
+  is rendered in the dashboard (`#kxViewOverview`, after `#kxWallets`), on the landing
+  page above the footer, and as a compact link on the auth screen - so a signed-out
+  visitor always has it. Five new keys x 6 locales (`license.*`), dictionary
+  1590 -> 1595. The dashboard never references the document, so its first paint is
+  unaffected.
+- TWO CSS TRAPS (found by measuring in Chromium, not by reading the CSS):
+  1. `overflow:hidden` on the viewer shell SILENTLY disables `position:sticky` on the
+     toolbar, because a hidden overflow box becomes the sticky containing block. Use
+     `overflow:clip`.
+  2. A flex-centred page that is wider than its scroll container gets a NEGATIVE
+     offset, so its left edge can never be reached (`scrollLeft` cannot go below 0).
+     Use `width:max-content; min-width:100%; margin-inline:auto` on the pages wrapper.
+  Both are pinned by `tests/operating_license_viewer.test.js`.
+- The toolbar's sticky offset is measured at runtime into `--lic-topbar-h` (a literal
+  `top` fights the iOS safe area and a wrapped top bar).
+- TESTS: `tests/operating_license_viewer.test.js` (29) executes the REAL inline script
+  against a fake DOM (page order, multipage, zoom + clamping, keyboard, wheel, error +
+  retry, back navigation, no download/print surface) and pins the route, the asset
+  bytes and geometry, the placement of all three entry points, the six-locale copy and
+  the untouched money constants. Four of them fail on the pre-feature markup, so they
+  are real regression pins. `npm test` = 4540 tests / 4539 pass / 0 fail / 1 skipped.
+- NOT committed / NOT pushed / NOT deployed.
