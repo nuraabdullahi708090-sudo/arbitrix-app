@@ -5271,13 +5271,18 @@ html[dir="rtl"] .kx-back-dash i{transform:scaleX(-1);}
    One quiet card that opens the dedicated /operating-license viewer. It is
    rendered below the dashboard content and above the landing footer. The
    document itself is NOT loaded here, so the dashboard's first paint is
-   unaffected; only the link is. */
+   unaffected; only the link is.
+
+   The action inside it is deliberately a GHOST button: Start Bot is the
+   dashboard's dominant primary action (filled accent, full width), so the
+   licence action keeps the accent hue but drops the fill, the weight and the
+   width, and sits under the copy instead of across the card. */
 .kx-license-card{
     display:grid;
-    grid-template-columns:auto minmax(0,1fr) auto;
-    align-items:center;
-    gap:14px 16px;
-    padding:16px 18px;
+    grid-template-columns:auto minmax(0,1fr);
+    align-items:start;
+    gap:10px 14px;
+    padding:14px 16px;
     margin-bottom:16px;
     border:1px solid var(--kx-border);
     border-radius:var(--kx-r-lg);
@@ -5291,13 +5296,18 @@ html[dir="rtl"] .kx-back-dash i{transform:scaleX(-1);}
 .kx-license-card:focus-visible{outline:2px solid var(--kx-accent);outline-offset:3px;}
 .kx-license-icon{
     display:flex;align-items:center;justify-content:center;
-    width:46px;height:46px;
+    width:40px;height:40px;
+    margin-top:1px;
     border:1px solid var(--kx-accent-border);
     border-radius:var(--kx-r);
     background:var(--kx-accent-weak);
     color:var(--kx-accent-text);
-    font-size:18px;
 }
+/* Inline SVG, not an icon font: the app loads Font Awesome 6.0.0-beta3, which has
+   no `file-shield` glyph, so the tile used to render as an empty square. */
+.kx-license-glyph{display:block;width:24px;height:24px;}
+/* The auth-screen link sets the same mark beside 12px text, so it gets its own size. */
+.auth-license-link .kx-license-glyph{width:14px;height:14px;}
 .kx-license-body{display:block;min-width:0;}
 .kx-license-title{
     display:block;
@@ -5305,40 +5315,43 @@ html[dir="rtl"] .kx-back-dash i{transform:scaleX(-1);}
     color:var(--kx-text);
     font-size:var(--kx-fs-md);
     font-weight:700;
-    line-height:1.3;
+    line-height:1.28;
 }
 .kx-license-desc{
     display:block;
-    margin:3px 0 0;
+    margin:2px 0 0;
     color:var(--kx-text-2);
     font-size:12.5px;
-    line-height:1.55;
+    line-height:1.5;
     overflow-wrap:anywhere;
 }
 .kx-license-meta{
-    display:flex;flex-wrap:wrap;align-items:center;gap:6px;
-    margin-top:9px;
+    display:flex;flex-wrap:wrap;align-items:center;gap:5px;
+    margin-top:5px;
     color:var(--kx-text-3);
-    font-size:11px;
+    font-size:10.5px;
     font-weight:600;
 }
 .kx-license-dot{flex:0 0 auto;width:3px;height:3px;border-radius:50%;background:var(--kx-border-strong);}
 .kx-license-ok{display:inline-flex;align-items:center;gap:5px;color:var(--kx-accent-text);}
 .kx-license-cta{
-    display:inline-flex;align-items:center;justify-content:center;gap:8px;
-    min-height:44px;
-    padding:0 18px;
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    height:44px;
+    margin-top:9px;
+    padding:0 14px;
     border:1px solid var(--kx-accent-border);
     border-radius:var(--kx-r-pill);
-    background:var(--kx-accent-soft);
+    background:transparent;
     color:var(--kx-accent-text);
-    font-size:var(--kx-fs-sm);
-    font-weight:700;
+    font-size:12.5px;
+    font-weight:600;
+    line-height:1;
     white-space:nowrap;
-    transition:background 160ms ease,color 160ms ease,border-color 160ms ease;
+    transition:background 160ms ease,border-color 160ms ease,color 160ms ease;
 }
-.kx-license-cta i{font-size:11px;transition:transform 160ms ease;}
-.kx-license-card:hover .kx-license-cta{background:var(--kx-accent);border-color:var(--kx-accent);color:var(--kx-on-accent);}
+.kx-license-cta i{font-size:10px;transition:transform 160ms ease;}
+/* Hover is a tint, never a fill: the card is the target, the button is a hint. */
+.kx-license-card:hover .kx-license-cta{background:var(--kx-accent-weak);border-color:var(--kx-accent);}
 .kx-license-card:hover .kx-license-cta i{transform:translateX(2px);}
 /* RTL: the call-to-action arrow points the other way, and its hover nudge follows. */
 html[dir="rtl"] .kx-license-cta i{transform:scaleX(-1);}
@@ -5347,14 +5360,31 @@ html[dir="rtl"] .kx-license-card:hover .kx-license-cta i{transform:scaleX(-1) tr
 .landing-license{padding:0 0 44px;}
 .landing-license .kx-license-card{max-width:1100px;margin:0 auto;}
 @media (max-width:700px){
-    .kx-license-card{grid-template-columns:auto minmax(0,1fr);padding:14px 16px;gap:12px;}
-    .kx-license-icon{width:42px;height:42px;font-size:16px;}
-    .kx-license-cta{grid-column:1 / -1;width:100%;}
+    .kx-license-card{padding:13px 14px;gap:9px 12px;}
+    .kx-license-icon{width:38px;height:38px;}
+    .kx-license-glyph{width:22px;height:22px;}
 }
 @media (max-width:400px){
-    .kx-license-card{padding:12px 14px;}
+    .kx-license-card{padding:12px 13px;}
     .kx-license-title{font-size:14px;}
     .kx-license-desc{font-size:12px;}
+    .kx-license-cta{font-size:12px;padding:0 12px;}
+}
+/* Desktop: the action rides on the metadata line instead of taking a row of its
+   own, so the card keeps its original height while the button stays a compact
+   ghost. The copy column shrinks to its content, which leaves the action right
+   after "Official document" rather than pinned to the card's far edge. */
+@media (min-width:1024px){
+    .kx-license-body{
+        display:grid;
+        grid-template-columns:minmax(0,max-content) auto;
+        align-items:center;
+        justify-content:start;
+        column-gap:14px;
+    }
+    .kx-license-title,.kx-license-desc{grid-column:1 / -1;}
+    .kx-license-meta{grid-column:1;grid-row:3;margin-top:0;}
+    .kx-license-cta{grid-column:2;grid-row:3;margin-top:0;}
 }
 @media (prefers-reduced-motion:reduce){
     .kx-license-card,.kx-license-cta,.kx-license-cta i{transition:none;}
@@ -8206,7 +8236,7 @@ console.log('🔐 Auth script loaded successfully');
     <section class="landing-license" aria-labelledby="landingLicenseTitle">
         <div class="landing-container">
             <a class="kx-license-card" href="/operating-license" aria-labelledby="landingLicenseTitle">
-                <span class="kx-license-icon" aria-hidden="true"><i class="fas fa-file-shield"></i></span>
+                <span class="kx-license-icon" aria-hidden="true"><svg class="kx-license-glyph" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M13.8 3H7.2A2.2 2.2 0 0 0 5 5.2v13.6A2.2 2.2 0 0 0 7.2 21h9.6a2.2 2.2 0 0 0 2.2-2.2V8.2L13.8 3Z"/><path d="M13.8 3v5.2H19"/><path d="M8.2 11.4h4.6"/><path d="M8.2 14.2h3"/><circle cx="15.7" cy="15.3" r="2.3"/><path d="M14.6 17.3 14 20.4l1.7-1 1.7 1-.6-3.1"/></svg></span>
                 <span class="kx-license-body">
                     <span class="kx-license-title" id="landingLicenseTitle" data-i18n="license.title">View Operating License</span>
                     <span class="kx-license-desc" data-i18n="license.desc">View our operating license and regulatory documentation.</span>
@@ -8215,8 +8245,8 @@ console.log('🔐 Auth script loaded successfully');
                         <span class="kx-license-dot" aria-hidden="true"></span>
                         <span class="kx-license-ok"><i class="fas fa-circle-check" aria-hidden="true"></i> <span data-i18n="license.status">Official document</span></span>
                     </span>
+                    <span class="kx-license-cta"><span data-i18n="license.cta">View license</span> <i class="fas fa-arrow-right" aria-hidden="true"></i></span>
                 </span>
-                <span class="kx-license-cta"><span data-i18n="license.cta">View license</span> <i class="fas fa-arrow-right" aria-hidden="true"></i></span>
             </a>
         </div>
     </section>
@@ -8642,7 +8672,7 @@ function toggleFaq(btn) {
                     <div style="display:flex;gap:8px;font-size:11px;color:var(--text-secondary);line-height:1.5;padding:2px 0;"><i class="fas fa-shield-halved" style="color:#5EA0FF;margin-top:2px;"></i><span data-i18n="auth.explainer.live">Live Mode uses real funds. Review its requirements before you deposit.</span></div>
                     <p style="font-size:11px;color:var(--text-secondary);line-height:1.5;margin:8px 0 0;" data-i18n="auth.explainer.firstStep">New here? Create an account and start with $50 in promotional credit.</p>
                     <a href="/how-it-works" style="display:inline-block;margin-top:8px;font-size:12px;font-weight:600;color:var(--brand);text-decoration:none;" data-i18n="landing.nav.howItWorks">How It Works</a>
-                    <a href="/operating-license" class="auth-license-link" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;margin-inline-start:16px;font-size:12px;font-weight:600;color:var(--brand);text-decoration:none;"><i class="fas fa-file-shield" aria-hidden="true"></i> <span data-i18n="license.title">View Operating License</span></a>
+                    <a href="/operating-license" class="auth-license-link" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;margin-inline-start:16px;font-size:12px;font-weight:600;color:var(--brand);text-decoration:none;"><svg class="kx-license-glyph" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" style="flex:0 0 auto;"><path d="M13.8 3H7.2A2.2 2.2 0 0 0 5 5.2v13.6A2.2 2.2 0 0 0 7.2 21h9.6a2.2 2.2 0 0 0 2.2-2.2V8.2L13.8 3Z"/><path d="M13.8 3v5.2H19"/><path d="M8.2 11.4h4.6"/><path d="M8.2 14.2h3"/><circle cx="15.7" cy="15.3" r="2.3"/><path d="M14.6 17.3 14 20.4l1.7-1 1.7 1-.6-3.1"/></svg> <span data-i18n="license.title">View Operating License</span></a>
                 </div>
             </div>
         </div>
@@ -8997,7 +9027,7 @@ function toggleFaq(btn) {
              visitor who is signed in. The card only links to the dedicated
              viewer; the document is never loaded here. -->
         <a class="kx-license-card" id="licenseCard" href="/operating-license" aria-labelledby="licenseCardTitle">
-            <span class="kx-license-icon" aria-hidden="true"><i class="fas fa-file-shield"></i></span>
+            <span class="kx-license-icon" aria-hidden="true"><svg class="kx-license-glyph" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M13.8 3H7.2A2.2 2.2 0 0 0 5 5.2v13.6A2.2 2.2 0 0 0 7.2 21h9.6a2.2 2.2 0 0 0 2.2-2.2V8.2L13.8 3Z"/><path d="M13.8 3v5.2H19"/><path d="M8.2 11.4h4.6"/><path d="M8.2 14.2h3"/><circle cx="15.7" cy="15.3" r="2.3"/><path d="M14.6 17.3 14 20.4l1.7-1 1.7 1-.6-3.1"/></svg></span>
             <span class="kx-license-body">
                 <span class="kx-license-title" id="licenseCardTitle" data-i18n="license.title">View Operating License</span>
                 <span class="kx-license-desc" data-i18n="license.desc">View our operating license and regulatory documentation.</span>
@@ -9006,8 +9036,8 @@ function toggleFaq(btn) {
                     <span class="kx-license-dot" aria-hidden="true"></span>
                     <span class="kx-license-ok"><i class="fas fa-circle-check" aria-hidden="true"></i> <span data-i18n="license.status">Official document</span></span>
                 </span>
+                <span class="kx-license-cta"><span data-i18n="license.cta">View license</span> <i class="fas fa-arrow-right" aria-hidden="true"></i></span>
             </span>
-            <span class="kx-license-cta"><span data-i18n="license.cta">View license</span> <i class="fas fa-arrow-right" aria-hidden="true"></i></span>
         </a>
 
         <!-- ============ PROMO BANNER REMOVED ============ -->

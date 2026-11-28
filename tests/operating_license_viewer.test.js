@@ -490,10 +490,17 @@ test('20. the dashboard section sits below the dashboard content, inside the ove
     assert.ok(cardAt > walletsAt, 'the license card comes after the dashboard content');
     assert.match(INDEX, /<a class="kx-license-card" id="licenseCard" href="\/operating-license"/,
         'the whole card is the link to the viewer');
-    assert.match(INDEX, /kx-license-icon[\s\S]{0,80}fa-file-shield/, 'a document/license icon');
+    // Inline SVG, not an icon-font glyph: Font Awesome 6.0.0-beta3 has no
+    // `file-shield`, which is why the tile used to render as an empty square.
+    assert.match(INDEX, /class="kx-license-icon" aria-hidden="true"><svg class="kx-license-glyph"/,
+        'the tile holds a real document/certificate icon');
+    // Scoped to the card on purpose: two unrelated pre-existing KYC tiles use the
+    // same missing glyph, and they are outside this section's contract.
+    const cardSlice = INDEX.slice(cardAt, INDEX.indexOf('</a>', cardAt));
+    assert.ok(!cardSlice.includes('fa-file-shield'), 'the missing glyph must not come back');
     assert.match(INDEX, /id="licenseCardTitle" data-i18n="license\.title">View Operating License</,
         'the exact required title');
-    assert.match(INDEX, /id="licenseCard"[\s\S]{0,1200}?data-i18n="license\.desc">View our operating license and regulatory documentation\.</,
+    assert.match(INDEX, /id="licenseCard"[\s\S]{0,2600}?data-i18n="license\.desc">View our operating license and regulatory documentation\.</,
         'the exact required description');
 });
 
@@ -513,7 +520,7 @@ test('22. a signed-out visitor on the auth screen also has the entry point', () 
     const authEnd = INDEX.indexOf('id="mainApp"');
     const linkAt = INDEX.indexOf('class="auth-license-link"');
     assert.ok(linkAt > authAt && linkAt < authEnd, 'the link is inside the auth screen');
-    const linkMarkup = INDEX.slice(INDEX.lastIndexOf('<a ', linkAt), linkAt + 400);
+    const linkMarkup = INDEX.slice(INDEX.lastIndexOf('<a ', linkAt), linkAt + 1400);
     assert.match(linkMarkup, /href="\/operating-license"/);
     assert.match(linkMarkup, /data-i18n="license\.title"/);
 });
@@ -522,6 +529,126 @@ test('23. the dashboard never preloads the document', () => {
     assert.ok(!INDEX.includes(DOC_URL), 'index.html must not reference the document asset');
     assert.ok(!INDEX.includes('/license/'), 'nor the asset directory');
     assert.ok(!/<img[^>]+operating-license/i.test(INDEX), 'no hidden document image in the dashboard');
+});
+
+test('23b. the action inside the card is a compact, secondary button', () => {
+    // The CSS for the section, isolated so an assertion cannot drift into another
+    // component's rules.
+    const start = INDEX.indexOf('/* ===== Operating license section');
+    const end = INDEX.indexOf('@media (prefers-reduced-motion:reduce){\n    .kx-license-card', start);
+    assert.ok(start > 0 && end > start, 'the license CSS block must be findable');
+    const css = INDEX.slice(start, end);
+
+    // 1. height in the 44-48px band, and a real fixed height (not a growable min-height)
+    assert.match(css, /\.kx-license-cta\{[^}]*height:44px;/, 'the button is exactly 44px tall');
+    assert.ok(!/\.kx-license-cta\{[^}]*min-height/.test(css), 'no growable min-height on the button');
+
+    // 2. compact: nothing may stretch it to the card width
+    assert.ok(!/\.kx-license-cta\{[^}]*width:100%/.test(css), 'the button is never full width');
+    assert.ok(!/\.kx-license-cta\{[^}]*grid-column:1 \/ -1/.test(css), 'the button never spans the card');
+
+    // 3. subordinate to the primary action: no filled accent, hairline border, lighter type
+    assert.match(css, /\.kx-license-cta\{[^}]*background:transparent/, 'the button has no accent fill');
+    assert.match(css, /\.kx-license-cta\{[^}]*border:1px solid var\(--kx-accent-border\)/, 'accent hairline border');
+    assert.match(css, /\.kx-license-cta\{[^}]*color:var\(--kx-accent-text\)/, 'accent text');
+    assert.match(css, /\.kx-license-cta\{[^}]*font-size:12\.5px/, 'smaller type than the primary');
+    assert.match(css, /\.kx-license-cta\{[^}]*font-weight:600/, 'not the primary weight');
+    assert.ok(!/\.kx-license-card:hover \.kx-license-cta\{[^}]*color:var\(--kx-on-accent\)/.test(css),
+        'hover must not turn the hint into a filled primary button');
+
+    // 4. left aligned: the action lives in the text column, so it flows from its start
+    const cardStart = INDEX.lastIndexOf('<a ', INDEX.indexOf('id="licenseCard"'));
+    const cardSlice = INDEX.slice(cardStart, INDEX.indexOf('</a>', cardStart));
+    assert.match(cardSlice, /<span class="kx-license-body">[\s\S]*class="kx-license-cta"[\s\S]*?<\/span>\s*<\/span>/,
+        'the call to action is the last child of the copy column');
+});
+
+test('23c. the document icon is drawn inline, not borrowed from an icon font', () => {
+    const cardStart = INDEX.lastIndexOf('<a ', INDEX.indexOf('id="licenseCard"'));
+    const cardSlice = INDEX.slice(cardStart, INDEX.indexOf('</a>', cardStart));
+    const icon = cardSlice.match(/<span class="kx-license-icon"[^>]*>([\s\S]*?)<\/span>/);
+    assert.ok(icon, 'the icon tile exists');
+    assert.match(icon[1], /<svg class="kx-license-glyph" viewBox="0 0 24 24"[^>]*stroke="currentColor"/,
+        'an inline SVG stroked in the accent colour');
+    // a page, its folded corner, two text lines and a seal with two ribbons
+    assert.equal((icon[1].match(/<path/g) || []).length, 5, 'five strokes: page, fold, two lines, ribbon');
+    assert.equal((icon[1].match(/<circle/g) || []).length, 1, 'one seal');
+    assert.ok(!/<i class=/.test(icon[1]), 'no icon-font element left in the tile');
+    assert.match(INDEX, /\.kx-license-glyph\{display:block;width:24px;height:24px;\}/, 'sized for the tile');
+    assert.match(INDEX, /\.auth-license-link \.kx-license-glyph\{width:14px;height:14px;\}/,
+        'the auth-screen copy of the mark is sized for a 12px label');
+});
+
+test('23d. the card spacing is tighter while the padding stays comfortable', () => {
+    const start = INDEX.indexOf('/* ===== Operating license section');
+    const css = INDEX.slice(start, INDEX.indexOf('@media (prefers-reduced-motion:reduce){\n    .kx-license-card', start));
+    assert.match(css, /\.kx-license-card\{[^}]*padding:14px 16px/, 'comfortable padding, reduced from 16/18');
+    assert.match(css, /\.kx-license-meta\{[^}]*margin-top:5px/, 'the meta row no longer floats (was 9px)');
+    assert.match(css, /\.kx-license-desc\{[^}]*margin:2px 0 0/, 'description sits closer to the title (was 3px)');
+    assert.match(css, /\.kx-license-card\{[^}]*gap:10px 14px/, 'grid gap reduced (was 14/16)');
+    assert.match(css, /@media \(max-width:700px\)\{[\s\S]*?\.kx-license-card\{padding:13px 14px;gap:9px 12px;\}/,
+        'phones get slightly tighter padding');
+    const phoneBlock = css.match(/@media \(max-width:700px\)\{([\s\S]*?)\n\}/);
+    assert.ok(phoneBlock, 'the phone media block exists');
+    assert.ok(!phoneBlock[1].includes('.kx-license-cta'), 'phones no longer override the button');
+});
+
+test('23e. the refinement left the copy, the card and the behaviour alone', () => {
+    const cardStart = INDEX.lastIndexOf('<a ', INDEX.indexOf('id="licenseCard"'));
+    const cardSlice = INDEX.slice(cardStart, INDEX.indexOf('</a>', cardStart));
+    assert.match(cardSlice, /<a class="kx-license-card" id="licenseCard" href="\/operating-license"/,
+        'the whole card is still the link');
+    assert.match(cardSlice, /data-i18n="license\.title">View Operating License</, 'title unchanged');
+    assert.match(cardSlice, /data-i18n="license\.desc">View our operating license and regulatory documentation\.</,
+        'description unchanged');
+    assert.match(cardSlice, /data-i18n="license\.certLabel">Certificate of Authorization</, 'meta unchanged');
+    assert.match(cardSlice, /data-i18n="license\.status">Official document</, 'status unchanged');
+    assert.match(cardSlice, /data-i18n="license\.cta">View license</, 'button label unchanged');
+    assert.match(cardSlice, /class="kx-license-cta"><span data-i18n="license\.cta">/,
+        'the action is a span inside the link, not a nested control');
+    assert.equal((INDEX.match(/class="kx-license-card"/g) || []).length, 2,
+        'still exactly two cards: the dashboard and the landing page');
+});
+
+test('23f. from 1024px up the action rides on the metadata row', () => {
+    const start = INDEX.indexOf('/* ===== Operating license section');
+    const css = INDEX.slice(start, INDEX.indexOf('@media (prefers-reduced-motion:reduce){\n    .kx-license-card', start));
+    const desktop = css.match(/@media \(min-width:1024px\)\{([\s\S]*?)\n\}/);
+    assert.ok(desktop, 'a desktop-only block exists');
+    const rules = desktop[1];
+
+    // the copy column becomes a two-column grid so meta and action share a row
+    assert.match(rules, /\.kx-license-body\{[^}]*display:grid/, 'the copy column is a grid on desktop');
+    assert.match(rules, /\.kx-license-body\{[^}]*grid-template-columns:minmax\(0,max-content\) auto/,
+        'the metadata shrinks to its content and the action follows it');
+    assert.match(rules, /\.kx-license-body\{[^}]*align-items:center/, 'the metadata text centres against the button');
+    assert.match(rules, /\.kx-license-meta\{[^}]*grid-row:3/, 'the metadata sits in the third row');
+    assert.match(rules, /\.kx-license-cta\{[^}]*grid-row:3/, 'the action sits in the same third row');
+    assert.match(rules, /\.kx-license-cta\{[^}]*margin-top:0/, 'the stacked margin is removed on desktop');
+    assert.match(rules, /\.kx-license-title,\.kx-license-desc\{grid-column:1 \/ -1;\}/,
+        'title and description still span the full copy width');
+
+    // the stacked layout below 1024 is untouched
+    assert.match(css, /\.kx-license-cta\{[^}]*margin-top:9px/, 'the base rule still stacks the action');
+    assert.ok(!/@media \(max-width:700px\)\{[\s\S]{0,300}?min-width/.test(css), 'no competing rule on phones');
+    // and the desktop block cannot change the card's height budget by resizing the button
+    assert.ok(!/\.kx-license-cta\{[^}]*height:(?!44px)/.test(rules), 'the button keeps its 44px height');
+});
+
+test('23g. the desktop rule changes nothing else about the card', () => {
+    const cardStart = INDEX.lastIndexOf('<a ', INDEX.indexOf('id="licenseCard"'));
+    const cardSlice = INDEX.slice(cardStart, INDEX.indexOf('</a>', cardStart));
+    // markup is identical to the mobile layout: one body column, action last child
+    assert.equal((cardSlice.match(/class="kx-license-cta"/g) || []).length, 1, 'one action element');
+    assert.match(cardSlice, /<span class="kx-license-meta">[\s\S]*?<\/span>\s*<span class="kx-license-cta">/,
+        'the action follows the metadata in the DOM at every width');
+    assert.match(cardSlice, /href="\/operating-license"/, 'navigation unchanged');
+    // the desktop block is additive: it does not restyle the card itself
+    const start = INDEX.indexOf('/* ===== Operating license section');
+    const desktop = INDEX.slice(start, INDEX.indexOf('@media (prefers-reduced-motion:reduce){\n    .kx-license-card', start))
+        .match(/@media \(min-width:1024px\)\{([\s\S]*?)\n\}/)[1];
+    assert.ok(!/\.kx-license-card\{/.test(desktop), 'the card box is not touched on desktop');
+    assert.ok(!/\.kx-license-icon/.test(desktop), 'the icon is not touched on desktop');
 });
 
 test('24. all five keys are translated in all six locales', () => {

@@ -11501,12 +11501,25 @@ URL registration, Render env and the specific uncredited payment still need an o
   control, no `<embed>`/`<object>`/`<iframe>`, no PDF chrome. The page states that the
   viewer offers no such controls and makes NO copy-protection claim: hiding controls
   does not prevent screenshots or copying.
-- SECTION. `.kx-license-card` (icon / title + description + meta / CTA in one grid row)
-  is rendered in the dashboard (`#kxViewOverview`, after `#kxWallets`), on the landing
+- SECTION. `.kx-license-card` (icon tile + a copy column that ends in the action) is
+  rendered in the dashboard (`#kxViewOverview`, after `#kxWallets`), on the landing
   page above the footer, and as a compact link on the auth screen - so a signed-out
   visitor always has it. Five new keys x 6 locales (`license.*`), dictionary
   1590 -> 1595. The dashboard never references the document, so its first paint is
   unaffected.
+- The action is deliberately a GHOST button (`height:44px`, transparent fill, accent
+  hairline, 12.5px type) because Start Bot is the dashboard's primary action; it lives
+  inside the copy column so it is never pinned to the card's right edge and never
+  stretched full width. Below 1024px it stacks under the description; from 1024px up
+  `.kx-license-body` becomes `grid-template-columns:minmax(0,max-content) auto` and the
+  action shares the THIRD row with `.kx-license-meta`, so the desktop card keeps its
+  compact height (101 -> 114px) instead of growing a button row (144px). The markup is
+  identical at both widths - only that media block switches the flow, so do not "fix"
+  the DOM to match one of them.
+- The tile holds an INLINE SVG document/seal icon, not an icon-font glyph: this app
+  loads Font Awesome 6.0.0-beta3, which has no `file-shield`, so the tile rendered as
+  an empty square. Two unrelated pre-existing KYC tiles still use that missing glyph -
+  out of scope here, worth a follow-up.
 - TWO CSS TRAPS (found by measuring in Chromium, not by reading the CSS):
   1. `overflow:hidden` on the viewer shell SILENTLY disables `position:sticky` on the
      toolbar, because a hidden overflow box becomes the sticky containing block. Use

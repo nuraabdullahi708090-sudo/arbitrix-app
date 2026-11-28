@@ -92,7 +92,10 @@ function funnelSlice() {
 // above the footer (and a compact link on the auth screen) that opens
 // /operating-license. The /partners feature itself still touches no homepage
 // markup. Previous pin: 81dc1a62...0944fe.
-const FUNNEL_SHA256 = '68c91e72e095a27f99216f8531a467bc7c104be918342334c178600b479fb2c6';
+// Re-pinned for the approved operating-license feature (2026-11-28): the
+// landing licence card and the auth-screen licence link are inside this slice,
+// so this constant tracks them. Everything else in the funnel is unchanged.
+const FUNNEL_SHA256 = '7f2f8624cc6ab3fa85c06075dac4284b76b3228cfca4cb967a3a8bda79a04ef8';
 const PARTNER_HANDLE = '@AlexArbitrix';
 const PARTNER_HANDLE_2 = '@OliviaArbitrix';
 const OFFICIAL_SUPPORT = '@ArbitrixSupportBot';
