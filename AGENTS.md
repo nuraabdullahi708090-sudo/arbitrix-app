@@ -11501,24 +11501,31 @@ URL registration, Render env and the specific uncredited payment still need an o
   control, no `<embed>`/`<object>`/`<iframe>`, no PDF chrome. The page states that the
   viewer offers no such controls and makes NO copy-protection claim: hiding controls
   does not prevent screenshots or copying.
-- SECTION. `.kx-license-card` (icon tile + a copy column that ends in the action) is
-  rendered in the dashboard (`#kxViewOverview`, after `#kxWallets`), on the landing
-  page above the footer, and as a compact link on the auth screen - so a signed-out
-  visitor always has it. Five new keys x 6 locales (`license.*`), dictionary
-  1590 -> 1595. The dashboard never references the document, so its first paint is
-  unaffected.
-- The action is deliberately a GHOST button (`height:44px`, transparent fill, accent
-  hairline, 12.5px type) because Start Bot is the dashboard's primary action; it lives
-  inside the copy column so it is never pinned to the card's right edge and never
-  stretched full width. Below 1024px it stacks under the description; from 1024px up
-  `.kx-license-body` becomes `grid-template-columns:minmax(0,max-content) auto` and the
-  action shares the THIRD row with `.kx-license-meta`, so the desktop card keeps its
-  compact height (101 -> 114px) instead of growing a button row (144px). The markup is
-  identical at both widths - only that media block switches the flow, so do not "fix"
-  the DOM to match one of them.
-- The tile holds an INLINE SVG document/seal icon, not an icon-font glyph: this app
-  loads Font Awesome 6.0.0-beta3, which has no `file-shield`, so the tile rendered as
-  an empty square. Two unrelated pre-existing KYC tiles still use that missing glyph -
+- ENTRY POINT (final revision, 2026-11-28). The SAME compact ghost link
+  (`.kx-license-link`) is rendered on every surface, exactly once per surface:
+  * PUBLIC: inside `.landing-footer-bottom`, ABOVE the risk disclaimer, centred on its
+    own row (`.landing-footer-license`, `flex:1 0 100%`).
+  * SIGNED-IN SHELL: `<footer class="app-footer">` is the LAST child of
+    `#mainContent`, so it follows every view (overview / markets / history / referral /
+    admin) and scrolls with the content. It is NOT fixed: `.main-content`'s existing
+    bottom padding (88px, 76px on phones) is what keeps it clear of the chat launcher,
+    and `body:has(#metaConsentBanner) .app-footer{padding-bottom:140px}` lifts it while
+    the one-time cookie banner is up (the banner element is removed once answered, so
+    the padding goes with it).
+  * AUTH screen keeps its own inline 12px link (`.auth-license-link`).
+  The markup inside both `.kx-license-link` anchors is byte-identical (icon + label
+  only, no description/badge/CTA) and pinned by test 20b, so the two cannot drift.
+  * The dashboard and landing CARDS are GONE (`#licenseCard`, `.landing-license`,
+    `.kx-license-card*`, `.kx-license-cta*` and the 700/400/1024px blocks that shaped
+    them). Do NOT re-add a card, a description, a badge or a second link per surface.
+  * The four keys only the card used (`license.desc`, `license.certLabel`,
+    `license.status`, `license.cta`) were deleted in all six locales; the dictionary
+    is 1591 keys/locale and `license.title` is the feature's only string. Keep it that
+    way: icon + label, no description, badge or second call to action.
+- The icon is an INLINE SVG document/seal mark (`.kx-license-glyph`, 16px in the
+  footer, 14px on the auth screen), not an icon-font glyph: this app loads Font
+  Awesome 6.0.0-beta3, which has no `file-shield`, so an icon-font tile rendered as an
+  empty square. Two unrelated pre-existing KYC tiles still use that missing glyph -
   out of scope here, worth a follow-up.
 - TWO CSS TRAPS (found by measuring in Chromium, not by reading the CSS):
   1. `overflow:hidden` on the viewer shell SILENTLY disables `position:sticky` on the
@@ -11537,3 +11544,31 @@ URL registration, Render env and the specific uncredited payment still need an o
   the untouched money constants. Four of them fail on the pre-feature markup, so they
   are real regression pins. `npm test` = 4540 tests / 4539 pass / 0 fail / 1 skipped.
 - NOT committed / NOT pushed / NOT deployed.
+
+## Operating license card - desktop refinement DEPLOYED (2026-11-28)
+- Commit f6c1ac0 ("fix: keep the operating license card compact on desktop"), parent
+  dae677e; pushed dae677e..f6c1ac0 main -> main as a fast-forward (verified with
+  `git merge-base --is-ancestor` before the push; no force/rebase/reset). CI on f6c1ac0:
+  success. Pre-push gate: npm test = 4546 tests / 4545 pass / 0 fail / 1 skipped.
+- Render auto-deployed in ~24 s. The served https://arbitrix.pro/ is BYTE-IDENTICAL to
+  the repo (sha256 9741de30ba71c794ca61bec46559a32922eb85464598c6685cb99e4bbbc0cf0a,
+  1,974,446 B). The viewer (/operating-license, 28,392 B) and the document
+  (/license/kalderix-operating-license.jpg, 198,153 B) are byte-identical too.
+- WHAT SHIPPED: the licence card's action is a compact ghost button; below 1024px it
+  stacks under the copy, and from 1024px up `.kx-license-body` becomes
+  `grid-template-columns:minmax(0,max-content) auto` so the action shares the metadata
+  row. Card height at >=1024px: 144 -> 114 (it was 101 before the action was
+  relocated). CSS only - no markup, navigation, viewer or dashboard change.
+- SERVED MARKERS: the `@media (min-width:1024px)` block, `grid-template-columns:
+  minmax(0,max-content) auto`, both `grid-row:3` rules, the ghost CTA
+  (`background:transparent`, `height:44px`), three `kx-license-glyph` SVGs and three
+  `/operating-license` hrefs; the old phone rule `grid-column:1 / -1;width:100%` is gone.
+- PRODUCTION SMOKE (headless Chromium against the live bundle, /api stubbed in-page so
+  nothing was created server-side) = 90/90: en and ar at 1280/1024/768/390 - on
+  >=1024 the action overlaps the metadata row and follows it by 8-24 px with the card
+  at 100-125 px, below 1024 it stacks and the card is 130-200 px; 44 px tall, ghost
+  fill, accent border/text, Start Bot still the filled primary, certificate icon drawn,
+  0 horizontal overflow, 0 page errors; clicking the action opens the viewer, the Back
+  control returns to the dashboard and the session survives.
+- This note is intentionally LEFT UNCOMMITTED so recording it does not trigger a second
+  Render rebuild (the working tree therefore shows AGENTS.md modified - documentation only).

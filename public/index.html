@@ -5267,127 +5267,51 @@ html[dir="rtl"] .kx-back-dash i{transform:scaleX(-1);}
   .support-widget{right:12px;bottom:calc(12px + env(safe-area-inset-bottom, 0px));}
   .support-toggle-btn{width:44px;height:44px;font-size:16px;}
 }
-/* ===== Operating license section (additive, display only) =====
-   One quiet card that opens the dedicated /operating-license viewer. It is
-   rendered below the dashboard content and above the landing footer. The
-   document itself is NOT loaded here, so the dashboard's first paint is
-   unaffected; only the link is.
+/* ===== Operating license entry point (additive, display only) =====
+   One compact ghost link in the landing footer, above the risk disclaimer. It
+   opens the dedicated /operating-license viewer; the document itself is never
+   loaded here, so no page's first paint is affected.
 
-   The action inside it is deliberately a GHOST button: Start Bot is the
-   dashboard's dominant primary action (filled accent, full width), so the
-   licence action keeps the accent hue but drops the fill, the weight and the
-   width, and sits under the copy instead of across the card. */
-.kx-license-card{
-    display:grid;
-    grid-template-columns:auto minmax(0,1fr);
-    align-items:start;
-    gap:10px 14px;
-    padding:14px 16px;
-    margin-bottom:16px;
-    border:1px solid var(--kx-border);
-    border-radius:var(--kx-r-lg);
-    background:linear-gradient(135deg,var(--kx-surface) 0%,var(--kx-surface-2) 100%);
-    box-shadow:var(--kx-shadow-sm);
-    color:inherit;
-    text-decoration:none;
-    transition:border-color 160ms ease,box-shadow 160ms ease;
-}
-.kx-license-card:hover{border-color:var(--kx-accent-border);box-shadow:var(--kx-shadow);}
-.kx-license-card:focus-visible{outline:2px solid var(--kx-accent);outline-offset:3px;}
-.kx-license-icon{
-    display:flex;align-items:center;justify-content:center;
-    width:40px;height:40px;
-    margin-top:1px;
-    border:1px solid var(--kx-accent-border);
-    border-radius:var(--kx-r);
-    background:var(--kx-accent-weak);
-    color:var(--kx-accent-text);
-}
-/* Inline SVG, not an icon font: the app loads Font Awesome 6.0.0-beta3, which has
-   no `file-shield` glyph, so the tile used to render as an empty square. */
-.kx-license-glyph{display:block;width:24px;height:24px;}
+   It is a reference link, not a call to action: the accent hue is kept but not
+   the fill, the weight or the width, so it never competes with the trading
+   actions in the app. */
+.kx-license-glyph{display:block;width:16px;height:16px;flex:0 0 auto;}
 /* The auth-screen link sets the same mark beside 12px text, so it gets its own size. */
 .auth-license-link .kx-license-glyph{width:14px;height:14px;}
-.kx-license-body{display:block;min-width:0;}
-.kx-license-title{
-    display:block;
-    margin:0;
-    color:var(--kx-text);
-    font-size:var(--kx-fs-md);
-    font-weight:700;
-    line-height:1.28;
-}
-.kx-license-desc{
-    display:block;
-    margin:2px 0 0;
-    color:var(--kx-text-2);
-    font-size:12.5px;
-    line-height:1.5;
-    overflow-wrap:anywhere;
-}
-.kx-license-meta{
-    display:flex;flex-wrap:wrap;align-items:center;gap:5px;
-    margin-top:5px;
-    color:var(--kx-text-3);
-    font-size:10.5px;
-    font-weight:600;
-}
-.kx-license-dot{flex:0 0 auto;width:3px;height:3px;border-radius:50%;background:var(--kx-border-strong);}
-.kx-license-ok{display:inline-flex;align-items:center;gap:5px;color:var(--kx-accent-text);}
-.kx-license-cta{
-    display:inline-flex;align-items:center;justify-content:center;gap:6px;
-    height:44px;
-    margin-top:9px;
-    padding:0 14px;
+.kx-license-link{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    min-height:44px;
+    padding:0 18px;
     border:1px solid var(--kx-accent-border);
     border-radius:var(--kx-r-pill);
     background:transparent;
     color:var(--kx-accent-text);
-    font-size:12.5px;
+    font-size:13px;
     font-weight:600;
     line-height:1;
+    text-decoration:none;
     white-space:nowrap;
     transition:background 160ms ease,border-color 160ms ease,color 160ms ease;
 }
-.kx-license-cta i{font-size:10px;transition:transform 160ms ease;}
-/* Hover is a tint, never a fill: the card is the target, the button is a hint. */
-.kx-license-card:hover .kx-license-cta{background:var(--kx-accent-weak);border-color:var(--kx-accent);}
-.kx-license-card:hover .kx-license-cta i{transform:translateX(2px);}
-/* RTL: the call-to-action arrow points the other way, and its hover nudge follows. */
-html[dir="rtl"] .kx-license-cta i{transform:scaleX(-1);}
-html[dir="rtl"] .kx-license-card:hover .kx-license-cta i{transform:scaleX(-1) translateX(2px);}
-/* Landing page placement: between the final call to action and the footer. */
-.landing-license{padding:0 0 44px;}
-.landing-license .kx-license-card{max-width:1100px;margin:0 auto;}
-@media (max-width:700px){
-    .kx-license-card{padding:13px 14px;gap:9px 12px;}
-    .kx-license-icon{width:38px;height:38px;}
-    .kx-license-glyph{width:22px;height:22px;}
-}
+.kx-license-link:hover{background:var(--kx-accent-weak);border-color:var(--kx-accent);}
+.kx-license-link:focus-visible{outline:2px solid var(--kx-accent);outline-offset:3px;}
+/* Footer placement: centred on its own line inside the legal block, so the rule
+   above that block keeps separating content from legal copy. */
+.landing-footer-license{display:flex;justify-content:center;flex:1 0 100%;}
+/* Authenticated shell: the same link in one quiet row under the content column.
+   It lives INSIDE the scrolling content, so the existing bottom padding of
+   .main-content is all that is needed to keep it clear of the fixed support
+   launcher and of a toast - no fixed positioning, no extra stacking context. */
+.app-footer{display:flex;justify-content:center;margin-top:12px;padding-top:18px;border-top:1px solid var(--kx-border);}
+/* The one-time cookie banner owns the bottom of the screen while it is up; lift
+   the footer row out from under it. The banner element is removed from the DOM
+   once a choice is stored, so this padding disappears with it. */
+body:has(#metaConsentBanner) .app-footer{padding-bottom:140px;}
 @media (max-width:400px){
-    .kx-license-card{padding:12px 13px;}
-    .kx-license-title{font-size:14px;}
-    .kx-license-desc{font-size:12px;}
-    .kx-license-cta{font-size:12px;padding:0 12px;}
-}
-/* Desktop: the action rides on the metadata line instead of taking a row of its
-   own, so the card keeps its original height while the button stays a compact
-   ghost. The copy column shrinks to its content, which leaves the action right
-   after "Official document" rather than pinned to the card's far edge. */
-@media (min-width:1024px){
-    .kx-license-body{
-        display:grid;
-        grid-template-columns:minmax(0,max-content) auto;
-        align-items:center;
-        justify-content:start;
-        column-gap:14px;
-    }
-    .kx-license-title,.kx-license-desc{grid-column:1 / -1;}
-    .kx-license-meta{grid-column:1;grid-row:3;margin-top:0;}
-    .kx-license-cta{grid-column:2;grid-row:3;margin-top:0;}
+    .kx-license-link{font-size:12.5px;padding:0 14px;gap:7px;}
 }
 @media (prefers-reduced-motion:reduce){
-    .kx-license-card,.kx-license-cta,.kx-license-cta i{transition:none;}
+    .kx-license-link{transition:none;}
 }
 
 </style>
@@ -8230,27 +8154,6 @@ console.log('🔐 Auth script loaded successfully');
         </div>
     </section>
 
-    <!-- Operating license (public): shown to signed-out visitors too, so the
-         document is reachable without an account. Sits above the footer, not
-         inside it. -->
-    <section class="landing-license" aria-labelledby="landingLicenseTitle">
-        <div class="landing-container">
-            <a class="kx-license-card" href="/operating-license" aria-labelledby="landingLicenseTitle">
-                <span class="kx-license-icon" aria-hidden="true"><svg class="kx-license-glyph" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M13.8 3H7.2A2.2 2.2 0 0 0 5 5.2v13.6A2.2 2.2 0 0 0 7.2 21h9.6a2.2 2.2 0 0 0 2.2-2.2V8.2L13.8 3Z"/><path d="M13.8 3v5.2H19"/><path d="M8.2 11.4h4.6"/><path d="M8.2 14.2h3"/><circle cx="15.7" cy="15.3" r="2.3"/><path d="M14.6 17.3 14 20.4l1.7-1 1.7 1-.6-3.1"/></svg></span>
-                <span class="kx-license-body">
-                    <span class="kx-license-title" id="landingLicenseTitle" data-i18n="license.title">View Operating License</span>
-                    <span class="kx-license-desc" data-i18n="license.desc">View our operating license and regulatory documentation.</span>
-                    <span class="kx-license-meta">
-                        <span data-i18n="license.certLabel">Certificate of Authorization</span>
-                        <span class="kx-license-dot" aria-hidden="true"></span>
-                        <span class="kx-license-ok"><i class="fas fa-circle-check" aria-hidden="true"></i> <span data-i18n="license.status">Official document</span></span>
-                    </span>
-                    <span class="kx-license-cta"><span data-i18n="license.cta">View license</span> <i class="fas fa-arrow-right" aria-hidden="true"></i></span>
-                </span>
-            </a>
-        </div>
-    </section>
-
     <!-- Footer -->
     <footer class="landing-footer">
         <div class="landing-container">
@@ -8285,6 +8188,15 @@ console.log('🔐 Auth script loaded successfully');
                 </div>
             </div>
             <div class="landing-footer-bottom">
+                <!-- Operating license: the single entry point, above the risk
+                     disclaimer. Opens the dedicated /operating-license viewer;
+                     the document itself is never loaded here. -->
+                <div class="landing-footer-license">
+                    <a class="kx-license-link" href="/operating-license">
+                        <svg class="kx-license-glyph" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M13.8 3H7.2A2.2 2.2 0 0 0 5 5.2v13.6A2.2 2.2 0 0 0 7.2 21h9.6a2.2 2.2 0 0 0 2.2-2.2V8.2L13.8 3Z"/><path d="M13.8 3v5.2H19"/><path d="M8.2 11.4h4.6"/><path d="M8.2 14.2h3"/><circle cx="15.7" cy="15.3" r="2.3"/><path d="M14.6 17.3 14 20.4l1.7-1 1.7 1-.6-3.1"/></svg>
+                        <span data-i18n="license.title">View Operating License</span>
+                    </a>
+                </div>
                 <p data-i18n="landing.footer.copyright">© 2026 Kalderix. All rights reserved.</p>
                 <p class="landing-footer-disclaimer" data-i18n="landing.footer.disclaimer">Trading involves risk. Past performance is not indicative of future results and does not guarantee Live performance.</p>
             </div>
@@ -9022,23 +8934,6 @@ function toggleFaq(btn) {
         </div>
 
         </div><!-- /kxWallets -->
-
-        <!-- Operating license: below the dashboard content, visible to every
-             visitor who is signed in. The card only links to the dedicated
-             viewer; the document is never loaded here. -->
-        <a class="kx-license-card" id="licenseCard" href="/operating-license" aria-labelledby="licenseCardTitle">
-            <span class="kx-license-icon" aria-hidden="true"><svg class="kx-license-glyph" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M13.8 3H7.2A2.2 2.2 0 0 0 5 5.2v13.6A2.2 2.2 0 0 0 7.2 21h9.6a2.2 2.2 0 0 0 2.2-2.2V8.2L13.8 3Z"/><path d="M13.8 3v5.2H19"/><path d="M8.2 11.4h4.6"/><path d="M8.2 14.2h3"/><circle cx="15.7" cy="15.3" r="2.3"/><path d="M14.6 17.3 14 20.4l1.7-1 1.7 1-.6-3.1"/></svg></span>
-            <span class="kx-license-body">
-                <span class="kx-license-title" id="licenseCardTitle" data-i18n="license.title">View Operating License</span>
-                <span class="kx-license-desc" data-i18n="license.desc">View our operating license and regulatory documentation.</span>
-                <span class="kx-license-meta">
-                    <span data-i18n="license.certLabel">Certificate of Authorization</span>
-                    <span class="kx-license-dot" aria-hidden="true"></span>
-                    <span class="kx-license-ok"><i class="fas fa-circle-check" aria-hidden="true"></i> <span data-i18n="license.status">Official document</span></span>
-                </span>
-                <span class="kx-license-cta"><span data-i18n="license.cta">View license</span> <i class="fas fa-arrow-right" aria-hidden="true"></i></span>
-            </span>
-        </a>
 
         <!-- ============ PROMO BANNER REMOVED ============ -->
 
@@ -10005,6 +9900,16 @@ function toggleFaq(btn) {
                     </div>
                 </div>
             </div>
+
+        <!-- Authenticated shell footer: the same compact licence link as the
+             public footer, so a signed-in customer reaches the viewer without
+             leaving the app. Scrolls with the content; nothing is fixed. -->
+        <footer class="app-footer">
+            <a class="kx-license-link" href="/operating-license">
+                <svg class="kx-license-glyph" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M13.8 3H7.2A2.2 2.2 0 0 0 5 5.2v13.6A2.2 2.2 0 0 0 7.2 21h9.6a2.2 2.2 0 0 0 2.2-2.2V8.2L13.8 3Z"/><path d="M13.8 3v5.2H19"/><path d="M8.2 11.4h4.6"/><path d="M8.2 14.2h3"/><circle cx="15.7" cy="15.3" r="2.3"/><path d="M14.6 17.3 14 20.4l1.7-1 1.7 1-.6-3.1"/></svg>
+                <span data-i18n="license.title">View Operating License</span>
+            </a>
+        </footer>
                     </div>
                 </div>
             </div>
@@ -12908,10 +12813,6 @@ const TRANSLATIONS = {
         'arbOpp.exampleTag': 'Illustrative',
         'arbOpp.disclosure': 'Example data only - these are not live market prices. Not financial advice and no profit is guaranteed.',
         'license.title': "View Operating License",
-        'license.desc': "View our operating license and regulatory documentation.",
-        'license.certLabel': "Certificate of Authorization",
-        'license.status': "Official document",
-        'license.cta': "View license",
         'arbOpp.observed': 'Observed spread',
         'arbOpp.net': 'Est. net spread',
         'arbOpp.dismiss': 'Dismiss notification',
@@ -14523,10 +14424,6 @@ const TRANSLATIONS = {
         'arbOpp.exampleTag': 'Ilustrativo',
         'arbOpp.disclosure': 'Solo es un ejemplo ilustrativo: no son precios en vivo, no es una oferta para operar ni una garantía de beneficios.',
         'license.title': "Ver la licencia operativa",
-        'license.desc': "Consulte nuestra licencia operativa y la documentaci\u00f3n regulatoria.",
-        'license.certLabel': "Certificado de autorizaci\u00f3n",
-        'license.status': "Documento oficial",
-        'license.cta': "Ver licencia",
         'arbOpp.observed': 'Spread observado',
         'arbOpp.net': 'Spread neto est.',
         'arbOpp.dismiss': 'Descartar notificación',
@@ -16139,10 +16036,6 @@ const TRANSLATIONS = {
         'arbOpp.exampleTag': 'Ilustrativo',
         'arbOpp.disclosure': 'Apenas um exemplo ilustrativo: não são preços ao vivo, não é uma oferta para negociar nem uma garantia de lucro.',
         'license.title': "Ver licen\u00e7a operacional",
-        'license.desc': "Veja nossa licen\u00e7a operacional e a documenta\u00e7\u00e3o regulat\u00f3ria.",
-        'license.certLabel': "Certificado de autoriza\u00e7\u00e3o",
-        'license.status': "Documento oficial",
-        'license.cta': "Ver licen\u00e7a",
         'arbOpp.observed': 'Spread observado',
         'arbOpp.net': 'Spread líquido est.',
         'arbOpp.dismiss': 'Dispensar notificação',
@@ -17755,10 +17648,6 @@ const TRANSLATIONS = {
         'arbOpp.exampleTag': 'Illustratif',
         'arbOpp.disclosure': 'Exemple illustratif uniquement : pas de prix en direct, pas une offre de transaction et pas une garantie de profit.',
         'license.title': "Voir la licence d'exploitation",
-        'license.desc': "Consultez notre licence d'exploitation et notre documentation r\u00e9glementaire.",
-        'license.certLabel': "Certificat d'autorisation",
-        'license.status': "Document officiel",
-        'license.cta': "Voir la licence",
         'arbOpp.observed': 'Spread observé',
         'arbOpp.net': 'Spread net est.',
         'arbOpp.dismiss': 'Ignorer la notification',
@@ -19371,10 +19260,6 @@ const TRANSLATIONS = {
         'arbOpp.exampleTag': 'توضيحي',
         'arbOpp.disclosure': 'مثال توضيحي فقط: ليست أسعارًا مباشرة، ولا عرضًا للتداول، ولا ضمانًا للربح.',
         'license.title': "\u0639\u0631\u0636 \u0631\u062e\u0635\u0629 \u0627\u0644\u062a\u0634\u063a\u064a\u0644",
-        'license.desc': "\u0627\u0637\u0644\u0639 \u0639\u0644\u0649 \u0631\u062e\u0635\u0629 \u0627\u0644\u062a\u0634\u063a\u064a\u0644 \u0648\u0627\u0644\u0648\u062b\u0627\u0626\u0642 \u0627\u0644\u062a\u0646\u0638\u064a\u0645\u064a\u0629 \u0627\u0644\u062e\u0627\u0635\u0629 \u0628\u0646\u0627.",
-        'license.certLabel': "\u0634\u0647\u0627\u062f\u0629 \u062a\u0641\u0648\u064a\u0636",
-        'license.status': "\u0645\u0633\u062a\u0646\u062f \u0631\u0633\u0645\u064a",
-        'license.cta': "\u0639\u0631\u0636 \u0627\u0644\u0631\u062e\u0635\u0629",
         'arbOpp.observed': 'الفرق الملحوظ',
         'arbOpp.net': 'صافي الفرق المتوقع',
         'arbOpp.dismiss': 'تجاهل الإشعار',
@@ -20987,10 +20872,6 @@ const TRANSLATIONS = {
         'arbOpp.exampleTag': '示意',
         'arbOpp.disclosure': '仅为示意示例：并非实时价格，不构成交易邀约，也不保证盈利。',
         'license.title': "\u67e5\u770b\u8fd0\u8425\u8bb8\u53ef\u8bc1",
-        'license.desc': "\u67e5\u770b\u6211\u4eec\u7684\u8fd0\u8425\u8bb8\u53ef\u8bc1\u548c\u76d1\u7ba1\u6587\u4ef6\u3002",
-        'license.certLabel': "\u6388\u6743\u8bc1\u4e66",
-        'license.status': "\u5b98\u65b9\u6587\u4ef6",
-        'license.cta': "\u67e5\u770b\u8bb8\u53ef\u8bc1",
         'arbOpp.observed': '观测价差',
         'arbOpp.net': '预估净价差',
         'arbOpp.dismiss': '关闭通知',
