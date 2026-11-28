@@ -12904,6 +12904,16 @@ app.get(['/partners', '/partners/'], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'partners.html'));
 });
 
+// Operating license viewer: the public, session-free page that presents the
+// company's license document exactly as issued (zoomable, scrollable, with no
+// download/print controls). The document itself is a static asset under
+// public/license/ served by express.static. Registered BEFORE the SPA fallback
+// so /operating-license does not resolve to the app shell. Nothing here reads a
+// session, a cookie or the database, so it works for signed-out visitors.
+app.get(['/operating-license', '/operating-license/'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'operating-license.html'));
+});
+
 // Referral link route handler
 // Redirects /ref/ARBI-XXXXX to /?ref=ARBI-XXXXX
 app.get('/ref/:code', (req, res) => {
@@ -12921,6 +12931,13 @@ app.get('/ref/:code', (req, res) => {
 // still failing wherever the media is actually consumed (e.g. Telegram sendVideo).
 // express.static above has already served every file that exists.
 app.use('/video', (req, res) => {
+  res.status(404).json({ success: false, error: 'Not found' });
+});
+
+// Same reasoning for the license document: a typo or a missing file must answer
+// a real 404 instead of the SPA shell with HTTP 200. express.static above has
+// already served the document when it exists.
+app.use('/license', (req, res) => {
   res.status(404).json({ success: false, error: 'Not found' });
 });
 
