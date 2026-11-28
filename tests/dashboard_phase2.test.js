@@ -266,17 +266,20 @@ test('the presentation layer never touches money', () => {
 /* ------------------------------------------------------------------ *
  * 10. No dead-end guidance in the Live Mode card
  * ------------------------------------------------------------------ */
-test('every "make your deposit" state also offers the deposit action', () => {
-  // AUDIT FINDING (onboarding/activation pass): `funding_required` rendered the
-  // sentence "Make a deposit to fund your Live balance" while the deposit button
-  // was toggled ONLY for `deposit_required` - a message with no action.
-  const start = INDEX.indexOf('function renderLiveModeCard');
-  const fn = INDEX.slice(start, start + 4000);
-  assert.match(fn, /const needsDeposit = status === 'deposit_required' \|\| status === 'funding_required'/,
-    'every deposit state offers the action');
-  assert.match(fn, /\|\| status === 'activation_required';/, 'the legacy server state is treated as a deposit state');
-  assert.match(fn, /if \(depBtn\) depBtn\.classList\.toggle\('hidden', !needsDeposit\);/, 'the button follows that decision');
-  // The paid-activation control no longer exists at all.
+test('every "make your deposit" message still has a deposit action', () => {
+  // AUDIT FINDING (onboarding/activation pass): a card could tell the customer
+  // "Make a deposit to fund your Live balance" while offering no button.
+  // The standalone promotional-credit card has since been REMOVED, so the
+  // guarantee is now that every remaining deposit message has a reachable
+  // action on the same screen.
+  assert.strictEqual(INDEX.indexOf('function renderLiveModeCard'), -1,
+    'the removed card can no longer produce a dead end');
+  assert.match(INDEX, /id="availableDepositBtn"[^>]*onclick="openDepositModal\(\)"/,
+    'the account card offers Deposit');
+  const steps = INDEX.slice(INDEX.indexOf('function startHereLiveSteps'),
+    INDEX.indexOf('function startHereLiveComplete'));
+  assert.match(steps, /startHere\.live\.stepDeposit/, 'the guidance card names the deposit step');
+  assert.match(INDEX, /id="depositOptionCrypto"/, 'the deposit dialog is reachable');
   assert.ok(!INDEX.includes('liveModeActivateBtn'), 'no activation button remains');
 });
 

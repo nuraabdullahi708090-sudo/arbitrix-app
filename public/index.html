@@ -4580,9 +4580,6 @@
         box-shadow:0 10px 24px rgba(94,160,255,0.22);
     }
 
-    @media (max-width:640px) {
-        #liveModeCard .card-body { padding:12px 14px; }
-    }
     @media (max-width:360px) {
         .kx-wordmark { font-size:15px; }
         .mode-tab { min-width:58px; padding:0 9px; font-size:11px; }
@@ -4635,7 +4632,7 @@
         }
         html,body{background:var(--kx-bg);}
         body{color:var(--kx-text);}
-        .kx-num,.kx-kpi-value,#totalEquity,#balanceValue,#pnlValue,#liveBalanceDisplay,#promoCreditAmount,
+        .kx-num,.kx-kpi-value,#totalEquity,#balanceValue,#pnlValue,#liveBalanceDisplay,
         .chart-stat-value,.stat-value,.stat-main,.wallet-box span:last-child{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;}
 
         /* ---- Shell -------------------------------------------------- */
@@ -5888,7 +5885,6 @@ async function handleSignup() {
         // sync reconciles any drift, and the real gates are server-side.
         if (data.liveMode && typeof data.liveMode === 'object') {
             APP.liveMode = data.liveMode;
-            if (typeof renderLiveModeCard === 'function') renderLiveModeCard();
         }
         if (data.wallet && typeof data.wallet === 'object' &&
             isFinite(Number(data.wallet.live_balance))) {
@@ -8771,12 +8767,10 @@ function toggleFaq(btn) {
             </div>
         </div>
 
-        <!-- Promotional credit + Live Mode status (server-authoritative).
-             Values come from APP.liveMode (/api/auth/me -> liveMode) and are
-             rendered by renderLiveModeCard(). Nothing here credits a balance,
-             marks a deposit or unlocks trading: the gates are /api/bot/start
-             and /api/trade. Hidden for accounts with no promotional credit and
-             no legacy activation state, so funded dashboards are unchanged. -->
+        <!-- Beginner orientation checklist (dismissible, display only). The card
+             is driven by server facts (wallet, eligibility) and never
+             credits a balance: the gates are /api/bot/start and
+             /api/trade. -->
         <div class="card" id="startHereCard" style="margin-bottom:16px;border:1px solid var(--brand-border);background:linear-gradient(135deg, var(--brand-weak), var(--brand-weak));">
             <div class="card-body">
                 <div class="kx-starthere-row" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
@@ -8799,26 +8793,6 @@ function toggleFaq(btn) {
             </div>
         </div>
 
-        <div class="card" id="liveModeCard" style="display:none;margin-bottom:16px;">
-            <div class="card-body">
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
-                    <div style="min-width:0;">
-                        <div class="stat-label"><i class="fas fa-gift" id="liveModeCardIcon"></i> <span data-i18n="promo.creditTitle" id="liveModeCardTitle">Promotional Credit</span></div>
-                        <div id="promoCreditAmountRow" style="margin-top:2px;">
-                            <span id="promoCreditAmount" style="font-size:22px;font-weight:700;color:var(--brand);">$0.00</span>
-                            <span style="font-size:12px;font-weight:600;color:var(--text-secondary);">&mdash; <span data-i18n="promo.creditBadge">Promotional Credit</span></span>
-                        </div>
-                    </div>
-                    <span id="liveModeStatusChip" class="status-badge pending" data-live-mode="unknown" style="font-size:10px;white-space:normal;text-transform:none;letter-spacing:0;"></span>
-                </div>
-                <!-- Rendered by renderLiveModeCard() (t() with {{amount}}), never by
-                     applyTranslations: a data-i18n placeholder would print literally. -->
-                <p id="promoCreditExplain" style="font-size:11px;color:var(--text-secondary);margin-top:8px;line-height:1.6;"></p>
-                <button type="button" id="liveModeDepositBtn" class="btn btn-primary btn-sm hidden" onclick="openDepositModal()" style="margin-top:8px;min-height:40px;">
-                    <i class="fas fa-circle-down"></i> <span data-i18n="liveMode.depositCta">Make your deposit</span>
-                </button>
-            </div>
-        </div>
 
         <!-- Cockpit: performance and statistics share one decision surface -->
         <div class="kx-cockpit" id="kxCockpit">
@@ -21157,95 +21131,6 @@ const BACKEND_DYNAMIC_MESSAGE_RULES = [
 // Translate a backend-authored message for display. Returns the localized text
 // for known safe messages, or the original message verbatim when unknown/dynamic/
 // internal. `fallbackKey` (optional) is used when the message is empty/undefined.
-// ============ PROMOTIONAL CREDIT + LIVE MODE STATUS (display only) ============
-// Renders the label the SERVER derived (APP.liveMode from /api/auth/me ->
-// liveMode). No eligibility is computed here, no balance is written and no
-// access is granted: the gates remain /api/bot/start, /api/trade and
-// /api/withdraw/request. A tampered APP.liveMode can therefore only change what
-// this card SAYS, never what the account can do.
-const LIVE_MODE_STATUS_VIEW = {
-    // 'activation_required' is a legacy server state. The customer journey no
-    // longer contains a paid activation step, so it is presented as the step the
-    // customer can actually take: fund the Live wallet.
-    activation_required: { key: 'liveMode.status.depositRequired', badge: 'pending' },
-    deposit_required: { key: 'liveMode.status.depositRequired', badge: 'pending' },
-    funding_required: { key: 'liveMode.status.fundingRequired', badge: 'demo' },
-    available: { key: 'liveMode.status.available', badge: 'funded' }
-};
-function liveModeStatusView(status) {
-    const view = LIVE_MODE_STATUS_VIEW[String(status || '')];
-    return view || LIVE_MODE_STATUS_VIEW.funding_required;
-}
-// Money for this card is always formatted from the server number, never from
-// user input, and is never treated as spendable state.
-function promoCreditText(amount) {
-    const n = Number(amount);
-    if (!isFinite(n) || n <= 0) return '$0.00';
-    return '$' + n.toFixed(2);
-}
-function renderLiveModeCard() {
-    try {
-        const card = document.getElementById('liveModeCard');
-        if (!card) return;
-        const info = APP.liveMode;
-        // MARKETING_SANDBOX has no promotional credit and is never gated.
-        if (!info || APP.environment === 'MARKETING_SANDBOX') {
-            card.style.display = 'none';
-            return;
-        }
-        const amount = Number(info.promoCredit) || 0;
-        const status = String(info.status || '');
-        const relevant = amount > 0 || status === 'activation_required'
-            || status === 'deposit_required' || status === 'funding_required';
-        // A funded, activated account with no promotional credit keeps the
-        // dashboard it has today: no extra card.
-        card.style.display = relevant ? 'block' : 'none';
-        if (!relevant) return;
-        // The header describes what the card is actually about: the promotional
-        // credit when the account HAS one, otherwise the Live Mode status. A $0
-        // account must never be shown a card titled "Promotional Credit".
-        const titleEl = document.getElementById('liveModeCardTitle');
-        if (titleEl) titleEl.textContent = amount > 0 ? t('promo.creditTitle') : t('liveMode.cardTitle');
-        const iconEl = document.getElementById('liveModeCardIcon');
-        if (iconEl) iconEl.className = amount > 0 ? 'fas fa-gift' : 'fas fa-bolt';
-        const amountRow = document.getElementById('promoCreditAmountRow');
-        if (amountRow) amountRow.style.display = amount > 0 ? '' : 'none';
-        const amountEl = document.getElementById('promoCreditAmount');
-        if (amountEl) amountEl.textContent = promoCreditText(amount);
-        const chip = document.getElementById('liveModeStatusChip');
-        if (chip) {
-            const view = liveModeStatusView(status);
-            chip.className = 'status-badge ' + view.badge;
-            chip.setAttribute('data-live-mode', status);
-            chip.textContent = t(view.key);
-        }
-        const explain = document.getElementById('promoCreditExplain');
-        if (explain) {
-            // Placeholders are interpolated here (never via data-i18n, which would
-            // print them raw). The dollar sign lives in the template.
-            let text;
-            if (status === 'deposit_required' || status === 'activation_required') {
-                text = t('liveMode.depositNote', { min: String(Number(APP.MIN_DEPOSIT) || 0) });
-            } else if (amount > 0) {
-                text = t('promo.creditExplainTradable', { amount: String(Number(amount)) });
-            } else {
-                text = t('liveMode.fundingNote');
-            }
-            explain.textContent = text;
-        }
-        // Activation is done but the qualifying deposit is not: the next step is a
-        // deposit, not another licence. Display only - the gates are server-side.
-        // `funding_required` is the same situation without a promotional credit,
-        // and BOTH must offer the action: telling a customer "make your deposit"
-        // without giving them the button is the dead end this audit found.
-        const depBtn = document.getElementById('liveModeDepositBtn');
-        const needsDeposit = status === 'deposit_required' || status === 'funding_required'
-            || status === 'activation_required';
-        if (depBtn) depBtn.classList.toggle('hidden', !needsDeposit);
-    } catch (e) { /* display only: a render failure must never break the dashboard */ }
-}
-
-
 function translateBackendMessage(message, fallbackKey) {
     // A mapped key may carry placeholders that depend on live configuration
     // (deposit.min100 uses {{min}}), so the adopted server value is always
@@ -21336,10 +21221,6 @@ function updateDynamicTranslations() {
         // Keep the bot engine disclosure in the user's language (the static
         // data-i18n default assumes the browser engine).
         if (typeof updateBotEngineNotice === 'function') updateBotEngineNotice();
-        // Promotional credit card: the amount in the explanation is interpolated
-        // by t(), so it must be rebuilt on a language switch (it is deliberately
-        // NOT a data-i18n target, which would print the raw placeholder).
-        if (typeof renderLiveModeCard === 'function') renderLiveModeCard();
         // Re-render the marketing demo badge + intro chip on language switch
         if (typeof updateSandboxBadge === 'function') updateSandboxBadge();
         // Re-render the subscription panel details on language switch: the
@@ -21900,6 +21781,10 @@ const APP = {
     currentWallet: 'live',
     chartData: { live: { labels: [], values: [] } },
     chartPeriod: '30m', chartInstance: null,
+    // Server-derived equity series (GET /api/equity/performance). The chart's
+    // numbers come from the persisted ledger, never from a local sample buffer.
+    equityServer: null, equityServerPeriod: null, equityInFlight: false,
+    equityFetchedAt: 0, equityRefreshTimer: null, equityRetryCount: 0, equityRetryTimer: null,
     unlockedBadges: { live: [] },
     celebratedMilestones: { profit_100: false, profit_500: false, profit_1000: false, streak_5: false, streak_10: false, first_deposit: false, all_badges: false },
     txViewExpanded: false, txShowOlder: false
@@ -23207,6 +23092,10 @@ function initChart() {
 }
 
 function updateChart() {
+    if (typeof equityServerActive === 'function' && equityServerActive()) {
+        if (typeof scheduleEquityRefresh === 'function') scheduleEquityRefresh();
+        return;
+    }
     if(!APP.chartInstance) return;
     const wallet = 'live';
     const data = getCurrentData();
@@ -23228,6 +23117,13 @@ function updateChart() {
 // Total Equity / Available Balance rendered by updateUI().
 function appendChartPoint(wallet, value) {
     wallet = 'live';
+    // Once the SERVER series is loaded it is the single source of truth for this
+    // window: splicing an optimistic/rollback point into it would move "Starting"
+    // and could survive a refresh (the original defect). Re-read instead.
+    if (typeof equityServerActive === 'function' && equityServerActive()) {
+        if (typeof scheduleEquityRefresh === 'function') scheduleEquityRefresh();
+        return;
+    }
     if(!APP.chartData[wallet]) APP.chartData[wallet] = { labels: [], values: [] };
     const bucket = APP.chartData[wallet];
     const now = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
@@ -23248,15 +23144,113 @@ function appendChartPoint(wallet, value) {
 }
 
 function filterChartData(data) {
+    // The server series is already scoped to the requested window and thinned,
+    // so slicing it by POINT COUNT here would silently cut the history again.
+    if (typeof equityServerActive === 'function' && equityServerActive()) return data;
     const maxPoints = APP.chartPeriod === '30m' ? 30 : APP.chartPeriod === '1h' ? 60 : data.labels.length;
     if(data.labels.length <= maxPoints) return data;
     return { labels: data.labels.slice(-maxPoints), values: data.values.slice(-maxPoints) };
+}
+
+// ===== Server-derived equity series (single source of truth) =====
+// The chart used to be a localStorage sample buffer capped at 100 points, so
+// after ~100 samples the oldest point was dropped and "Starting" silently became
+// the balance a few minutes ago (a $30 realised gain could read as ~$8 after a
+// refresh). The series is now read from the PERSISTED ledger + wallet balance,
+// so the figures reconcile with Total Equity and survive refresh / re-login.
+const EQUITY_REFRESH_MIN_MS = 4000;
+function equityPeriodKey(period) {
+    const p = String(period || APP.chartPeriod || '30m');
+    return (p === '1h' || p === 'all') ? p : '30m';
+}
+function equityServerActive() {
+    return !!(APP.equityServer && APP.equityServerPeriod === equityPeriodKey(APP.chartPeriod));
+}
+function scheduleEquityRefresh() {
+    try {
+        if (!localStorage.getItem('jwt_token')) return;
+        if (APP.equityRefreshTimer) return;
+        const waited = Date.now() - (Number(APP.equityFetchedAt) || 0);
+        APP.equityRefreshTimer = setTimeout(function () {
+            APP.equityRefreshTimer = null;
+            loadEquityPerformance(APP.chartPeriod);
+        }, Math.max(0, EQUITY_REFRESH_MIN_MS - waited));
+    } catch (e) { /* display only */ }
+}
+// A failed read must not leave the card stale until the customer happens to
+// trade again: retry a bounded number of times (8s apart) and give up quietly.
+function scheduleEquityRetry() {
+    try {
+        if (APP.equityRetryTimer) return;
+        if ((Number(APP.equityRetryCount) || 0) >= 3) return;
+        APP.equityRetryCount = (Number(APP.equityRetryCount) || 0) + 1;
+        APP.equityRetryTimer = setTimeout(function () {
+            APP.equityRetryTimer = null;
+            loadEquityPerformance(APP.chartPeriod);
+        }, 8000);
+    } catch (e) { /* display only */ }
+}
+async function loadEquityPerformance(period) {
+    const key = equityPeriodKey(period);
+    if (typeof fetch !== 'function') return;
+    try {
+        const token = localStorage.getItem('jwt_token');
+        if (!token) return;
+        if (APP.equityInFlight) return;
+        APP.equityInFlight = true;
+        const res = await fetch('/api/equity/performance?period=' + encodeURIComponent(key),
+            { headers: { 'Authorization': 'Bearer ' + token } });
+        if (!res || !res.ok) { scheduleEquityRetry(); return; }
+        const payload = await res.json();
+        APP.equityFetchedAt = Date.now();
+        APP.equityRetryCount = 0;
+        if (!payload || !Array.isArray(payload.points) || !payload.points.length) return;
+        // The customer may have switched period while this was in flight: a
+        // response for a window nobody is looking at must not be adopted.
+        if (key !== equityPeriodKey(APP.chartPeriod)) { scheduleEquityRefresh(); return; }
+        APP.equityServer = payload;
+        APP.equityServerPeriod = key;
+        APP.chartData.live = {
+            labels: payload.points.map(function (pt) {
+                return new Date(pt.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }),
+            values: payload.points.map(function (pt) { return Number(pt.equity) || 0; })
+        };
+        if (APP.chartInstance && APP.currentWallet === 'live') {
+            const filtered = filterChartData(APP.chartData.live);
+            APP.chartInstance.data.labels = filtered.labels;
+            APP.chartInstance.data.datasets[0].data = filtered.values;
+            APP.chartInstance.update('none');
+        }
+        updateChartStats();
+        saveData();
+    } catch (e) {
+        // Display only: the cached series stays on screen while we retry.
+        scheduleEquityRetry();
+    } finally {
+        APP.equityInFlight = false;
+    }
 }
 
 function updateChartStats() {
     const wallet = 'live';
     const data = APP.chartData[wallet];
     if(!data.values.length) return;
+    // AUTHORITATIVE: starting/current/change/high come from the persisted
+    // ledger + wallet balance, so they reconcile with Total Equity and are
+    // identical after a refresh or a re-login.
+    const server = (typeof equityServerActive === 'function' && equityServerActive()) ? APP.equityServer : null;
+    if (server) {
+        const sChange = Number(server.change) || 0;
+        const sPct = Number(server.changePct) || 0;
+        getEl('chartStartValue').textContent = formatCurrency(server.starting);
+        getEl('chartCurrentValue').textContent = formatCurrency(server.current);
+        const sEl = getEl('chartChangeValue');
+        sEl.textContent = (sChange>=0?'+':'') + formatCurrency(sChange) + ' (' + (sPct>=0?'+':'') + sPct.toFixed(2) + '%)';
+        sEl.className = 'chart-stat-value ' + (sChange >= 0 ? 'positive' : 'negative');
+        getEl('chartHighValue').textContent = formatCurrency(server.high);
+        return;
+    }
     const filtered = filterChartData(data);
     const start = filtered.values[0];
     const current = filtered.values[filtered.values.length - 1];
@@ -23274,6 +23268,9 @@ function updateChartStats() {
 function setChartPeriod(period) {
     APP.chartPeriod = period;
     document.querySelectorAll('.chart-period-tab').forEach(function(t) { t.classList.toggle('active', t.dataset.period === period); });
+    // 30M / 1H / ALL are SERVER windows now (they used to slice a 100-point
+    // buffer, so "30M" was really the last ~4 minutes of samples).
+    if (typeof loadEquityPerformance === 'function') loadEquityPerformance(period);
     const wallet = 'live';
     const filtered = filterChartData(APP.chartData[wallet]);
     if(APP.chartInstance) {
@@ -24125,6 +24122,8 @@ async function persistLiveTrade(profit, asset, idempotencyKey, preBalance, prePn
                 APP.chartInstance.update('none');
                 updateChartStats();
             }
+            // A persisted trade changed equity: re-read the ledger series.
+            if (typeof scheduleEquityRefresh === 'function') scheduleEquityRefresh();
         } else {
             rollback();
         }
@@ -24242,6 +24241,9 @@ async function runWorkerSyncTick() {
         }
         // Authoritative balance / Today's P&L / trade log / transaction history.
         await syncWalletFromServer();
+        // Trades executed by a server-side worker never touch this tab directly,
+        // so the equity series is re-read here as well (debounced).
+        if (typeof scheduleEquityRefresh === 'function') scheduleEquityRefresh();
     } catch (e) {
         // Non-fatal: keep the last known state; the next tick retries.
     } finally {
@@ -27461,7 +27463,6 @@ async function syncWalletFromServer() {
             if (meData && meData.liveMode && typeof meData.liveMode === 'object') {
                 APP.liveMode = meData.liveMode;
             }
-                if (typeof renderLiveModeCard === 'function') renderLiveModeCard();
             // Persist the classification on the cached user object so
             // checkAdminAccess()/renderers can read it without another fetch.
             try {
@@ -27854,6 +27855,9 @@ async function initApp() {
     // server balance no new point is created, so repeated refreshes do not stack
     // duplicate points.
     anchorLiveChartToServerBalance();
+    // Replace that instant paint with the persisted series as soon as it arrives:
+    // the chart's Starting/Current/Change/High must reconcile with the ledger.
+    if (typeof loadEquityPerformance === 'function') loadEquityPerformance(APP.chartPeriod);
 
     // SINGLE MODE: there is no display mode to resolve. The app always shows the
     // Live wallet, and adoptServerBotState() below reports whether a server-side
@@ -28054,6 +28058,14 @@ async function initApp() {
             // the live in-memory APP.chartData that loadData() would otherwise
             // reuse (loadData only overwrites it when arbi_chart exists).
             APP.chartData = { live: { labels: [], values: [] } };
+            // The server-derived series is per account too: a queued refresh must
+            // not paint the previous user's equity into the next session.
+            APP.equityServer = null;
+            APP.equityServerPeriod = null;
+            APP.equityFetchedAt = 0;
+            if (APP.equityRefreshTimer) { clearTimeout(APP.equityRefreshTimer); APP.equityRefreshTimer = null; }
+            if (APP.equityRetryTimer) { clearTimeout(APP.equityRetryTimer); APP.equityRetryTimer = null; }
+            APP.equityRetryCount = 0;
         }
     });
     

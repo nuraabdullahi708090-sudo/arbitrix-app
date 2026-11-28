@@ -1,174 +1,161 @@
 'use strict';
 /**
- * The dashboard status card used to be titled "Promotional Credit" for EVERY
- * account that saw it, including accounts with no promotional credit at all
- * ($0 unfunded, funded-but-$0). The header now follows the content: the credit
- * title only when a credit exists, otherwise a neutral Live Mode title.
+ * The dashboard used to render a STANDALONE "Promotional Credit" card
+ * (`#liveModeCard`) beneath the Live Mode guidance card: a gift icon, the
+ * promotional balance, a "Live Mode available" chip and an explanatory
+ * sentence. Management asked for that card to be removed (it duplicated the
+ * yellow promotional-credit notice, the wallet card and the account card).
  *
- * These tests execute the REAL renderLiveModeCard()/startHereLiveSteps() from
- * public/index.html against a minimal DOM, so they pin behaviour rather than a
- * source string.
+ * These tests pin the REMOVAL and, just as importantly, that nothing else
+ * moved:
+ *   - the upper Live Mode guidance card (`#startHereCard`) is untouched,
+ *   - the yellow promotional-credit notice (`#promoCreditBanner`) is still the
+ *     one customer-facing disclosure,
+ *   - the wallet / Deposit / Withdraw entry points are untouched,
+ *   - the promotional RULES (classification, $30 realised-profit cap, first
+ *     deposit before withdrawal) are untouched,
+ *   - the translations were not reduced.
  */
 const { test } = require('node:test');
 const assert = require('node:assert');
-const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { readLf } = require('./helpers/text');
 
-const INDEX = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+const ROOT = path.join(__dirname, '..');
+const INDEX = readLf(path.join(ROOT, 'public', 'index.html'));
+const SERVER = readLf(path.join(ROOT, 'server.js'));
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
 
 function dictionary() {
-    const at = INDEX.indexOf('const TRANSLATIONS');
-    let depth = 0, end = -1;
-    for (let i = INDEX.indexOf('{', at); i < INDEX.length; i++) {
-        if (INDEX[i] === '{') depth++;
-        else if (INDEX[i] === '}') { depth--; if (!depth) { end = i; break; } }
+  const at = INDEX.indexOf('const TRANSLATIONS');
+  let depth = 0;
+  let end = -1;
+  for (let i = INDEX.indexOf('{', at); i < INDEX.length; i++) {
+    if (INDEX[i] === '{') depth += 1;
+    else if (INDEX[i] === '}') {
+      depth -= 1;
+      if (!depth) { end = i; break; }
     }
-    const sandbox = {};
-    vm.createContext(sandbox);
-    vm.runInContext('globalThis.T = ' + INDEX.slice(INDEX.indexOf('{', at), end + 1), sandbox);
-    return sandbox.T;
+  }
+  const sandbox = {};
+  vm.createContext(sandbox);
+  vm.runInContext('globalThis.T = ' + INDEX.slice(INDEX.indexOf('{', at), end + 1), sandbox);
+  return sandbox.T;
 }
 
-function extractFunction(name) {
-    const start = INDEX.indexOf('function ' + name + '(');
-    assert.ok(start > 0, name + ' must exist');
-    let depth = 0, seen = false;
-    for (let i = INDEX.indexOf('{', start); i < INDEX.length; i++) {
-        if (INDEX[i] === '{') { depth++; seen = true; }
-        else if (INDEX[i] === '}') { depth--; if (seen && depth === 0) return INDEX.slice(start, i + 1); }
-    }
-    throw new Error('unbalanced ' + name);
+/** The dashboard's overview markup (between the notice and the wallet block). */
+function overviewMarkup() {
+  const start = INDEX.indexOf('id="promoCreditBanner"');
+  const end = INDEX.indexOf('id="liveWalletSection"');
+  assert.ok(start > 0 && end > start, 'the overview block must be locatable');
+  return INDEX.slice(start, end);
 }
 
-function el() {
-    const node = { textContent: '', className: '', style: { display: '' }, classList: { add() {}, remove() {}, contains() { return false; } } };
-    return node;
-}
-
-/** Run the real renderer with a given server payload. */
-function render(liveMode) {
-    const nodes = {
-        liveModeCard: el(), liveModeCardTitle: el(), liveModeCardIcon: el(),
-        promoCreditAmountRow: el(), promoCreditAmount: el(), liveModeStatusChip: el(),
-        promoCreditExplain: el(), liveModeDepositBtn: el(),
-    };
-    const T = dictionary();
-    const sandbox = {
-        APP: { environment: 'PRODUCTION', liveMode, MIN_DEPOSIT: 50 },
-        t: (key, vars) => String(T.en[key] !== undefined ? T.en[key] : key)
-            .replace(/\{\{(\w+)\}\}/g, (m, k) => (vars && vars[k] !== undefined ? vars[k] : m)),
-        promoCreditText: (n) => '$' + Number(n || 0).toFixed(2),
-        liveModeStatusView: () => ({ badge: 'pending', key: 'liveMode.status.depositRequired' }),
-        document: { getElementById: (id) => nodes[id] || null },
-        console,
-    };
-    vm.createContext(sandbox);
-    vm.runInContext(extractFunction('renderLiveModeCard') + ';globalThis.render = renderLiveModeCard;', sandbox);
-    sandbox.render();
-    return nodes;
-}
-
-test('1. a $0 account never sees a "Promotional Credit" header', () => {
-    const nodes = render({ status: 'activation_required', promoCredit: 0 });
-    assert.strictEqual(nodes.liveModeCard.style.display, 'block', 'the status card still explains the block');
-    assert.strictEqual(nodes.liveModeCardTitle.textContent, 'Live Mode');
-    assert.strictEqual(nodes.promoCreditAmountRow.style.display, 'none', 'no $0.00 credit row');
-    assert.match(nodes.liveModeCardIcon.className, /fa-bolt/, 'neutral icon, not the gift');
+test('1. the standalone promotional-credit card is gone from the markup', () => {
+  const overview = overviewMarkup();
+  [
+    'id="liveModeCard"',
+    'id="liveModeCardTitle"',
+    'id="liveModeCardIcon"',
+    'id="promoCreditAmount"',
+    'id="promoCreditAmountRow"',
+    'id="liveModeStatusChip"',
+    'id="promoCreditExplain"',
+    'id="liveModeDepositBtn"',
+  ].forEach((id) => {
+    assert.strictEqual(INDEX.indexOf(id), -1, 'the removed card must not keep ' + id);
+  });
+  assert.ok(!/Promotional Credit<\/span>/.test(overview),
+    'no dashboard card heading claims "Promotional Credit" any more');
+  assert.ok(!/data-i18n="promo\.creditTitle"/.test(INDEX),
+    'the card title binding is gone with the card');
+  assert.ok(!/data-i18n="promo\.creditBadge"/.test(INDEX),
+    'the inline "Promotional Credit" badge binding is gone with the card');
 });
 
-test('2. an account WITH a credit keeps the credit header and amount', () => {
-    const nodes = render({ status: 'activation_required', promoCredit: 50 });
-    assert.strictEqual(nodes.liveModeCardTitle.textContent, 'Promotional Credit');
-    assert.strictEqual(nodes.promoCreditAmountRow.style.display, '');
-    assert.strictEqual(nodes.promoCreditAmount.textContent, '$50.00');
-    assert.match(nodes.liveModeCardIcon.className, /fa-gift/);
+test('2. the card renderer and its helpers are gone', () => {
+  ['renderLiveModeCard', 'liveModeStatusView', 'promoCreditText'].forEach((fn) => {
+    assert.strictEqual(INDEX.indexOf('function ' + fn + '('), -1, fn + ' must be removed');
+  });
+  assert.strictEqual(INDEX.indexOf('LIVE_MODE_STATUS_VIEW'), -1, 'the dead status map is removed');
 });
 
-test('3. a funded $0 account gets the neutral header, not a credit claim', () => {
-    const nodes = render({ status: 'funding_required', promoCredit: 0 });
-    assert.strictEqual(nodes.liveModeCardTitle.textContent, 'Live Mode');
-    assert.strictEqual(nodes.promoCreditAmountRow.style.display, 'none');
+test('3. no call site can resurrect the card', () => {
+  // Registration, the login sync and the language switch all used to re-render
+  // it; none of them may reference it now.
+  assert.ok(!/renderLiveModeCard/.test(INDEX), 'no re-render hook remains');
+  assert.ok(!/liveModeCard/.test(INDEX), 'no CSS rule or id targets the removed card');
+  // The server-derived state itself is still adopted (other surfaces and tests
+  // rely on it), only the rendering is gone.
+  assert.match(INDEX, /APP\.liveMode = data\.liveMode;/);
+  assert.match(INDEX, /APP\.liveMode = meData\.liveMode;/);
 });
 
-test('4. a funded account with no credit and no block keeps the dashboard clean', () => {
-    const nodes = render({ status: 'available', promoCredit: 0 });
-    assert.strictEqual(nodes.liveModeCard.style.display, 'none', 'no extra card');
+test('4. the upper Live Mode guidance card is untouched', () => {
+  const start = INDEX.indexOf('id="startHereCard"');
+  assert.ok(start > 0, 'the guidance card still exists');
+  const card = INDEX.slice(start, INDEX.indexOf('id="kxCockpit"'));
+  assert.ok(/id="startHereHeadLive"/.test(card), 'its header is intact');
+  assert.ok(/data-i18n="startHere\.live\.title"/.test(card), 'its title is intact');
+  assert.ok(/id="startHereStepsLive"/.test(card), 'its steps container is intact');
+  assert.ok(/id="startHereStepsLiveReady"/.test(card), 'its completion line is intact');
+  assert.ok(/onclick="dismissStartHere\(\)"/.test(card), 'its Dismiss action is intact');
+  assert.ok(/data-i18n="startHere\.live\.ready"/.test(card), 'the ready copy is intact');
+  assert.ok(/id="startHereCard" style="margin-bottom:16px;border:1px solid var\(--brand-border\)/.test(INDEX),
+    'the guidance card keeps its own styling');
 });
 
-test('5. the sandbox never sees the card and never renders a title', () => {
-    const T = dictionary();
-    const nodes = { liveModeCard: el(), liveModeCardTitle: el(), liveModeCardIcon: el() };
-    const sandbox = {
-        APP: { environment: 'MARKETING_SANDBOX', liveMode: { status: 'available', promoCredit: 50 } },
-        t: (k) => T.en[k] || k,
-        document: { getElementById: (id) => nodes[id] || null },
-        console,
-    };
-    vm.createContext(sandbox);
-    vm.runInContext(extractFunction('renderLiveModeCard') + ';globalThis.render = renderLiveModeCard;', sandbox);
-    sandbox.render();
-    assert.strictEqual(nodes.liveModeCard.style.display, 'none');
-    assert.strictEqual(nodes.liveModeCardTitle.textContent, '', 'nothing written');
+test('5. the yellow promotional-credit notice is still the single disclosure', () => {
+  const at = INDEX.indexOf('id="promoCreditBanner"');
+  const banner = INDEX.slice(at - 120, at + 400);
+  assert.ok(/kx-alert kx-alert-warning/.test(banner), 'the notice keeps its warning styling');
+  assert.ok(/data-i18n="promo\.tradableNotice"/.test(banner), 'it still carries the approved sentence');
+  assert.strictEqual((INDEX.match(/id="promoCreditBanner"/g) || []).length, 1,
+    'exactly one promotional-credit notice exists');
+  assert.ok(!/\$\{\{/.test(banner), 'the notice carries no un-interpolated amount');
 });
 
-test('6. the markup exposes the ids the renderer writes and a sane default', () => {
-    assert.match(INDEX, /id="liveModeCardTitle"[^>]*>Promotional Credit</);
-    assert.match(INDEX, /id="liveModeCardIcon"/);
-    assert.match(INDEX, /data-i18n="promo\.creditTitle"[^>]*id="liveModeCardTitle"|id="liveModeCardTitle"[^>]*data-i18n="promo\.creditTitle"/);
+test('6. the account card still offers Deposit and Withdraw', () => {
+  assert.ok(/id="availableDepositBtn"[^>]*onclick="openDepositModal\(\)"/.test(INDEX),
+    'the Deposit action is still on the first screen');
+  assert.ok(/id="availableWithdrawBtn"[^>]*onclick="openWithdrawModal\(\)"/.test(INDEX),
+    'the Withdraw action is still on the first screen');
+  assert.ok(/onclick="toggleBot\(\)"/.test(INDEX), 'the bot control is untouched');
+  assert.ok(/id="totalEquity"/.test(INDEX) && /id="balanceValue"/.test(INDEX) && /id="pnlValue"/.test(INDEX),
+    'the account figures are untouched');
 });
 
-test('7. a language switch re-renders the card (dynamic strings are not data-i18n only)', () => {
-    const dyn = extractFunction('updateDynamicTranslations');
-    assert.match(dyn, /renderLiveModeCard\(\)/);
-    assert.ok(dyn.indexOf('renderLiveModeCard()') < dyn.indexOf('updateStartHere()'), 'title/amount rebuilt before the checklist');
+test('7. the promotional RULES are untouched by a presentation change', () => {
+  // Server: one cap, one classifier, one refusal code.
+  assert.match(SERVER, /const PROMO_PROFIT_CAP_USD = 30;/);
+  assert.match(SERVER, /function isPromoProfitCapReached/);
+  assert.match(SERVER, /PROMO_TRADING_LIMIT_REACHED/);
+  assert.match(SERVER, /async function isPromoCreditFunded/);
+  // Client: the server's verdict is still adopted and still stops the bot.
+  assert.match(INDEX, /APP\.liveData\.promoLimitReached = meData\.promoLimitReached;/);
+  assert.match(INDEX, /if\(APP\.liveData\.promoLimitReached\)/);
+  assert.match(INDEX, /showToast\(t\('bot\.promoLimitReached'\)/);
+  // The first-deposit-before-withdrawal rule is still the server's decision.
+  assert.match(SERVER, /depositRequired: true/);
 });
 
-test('8. the LIVE checklist states the blocker, not a generic next step', () => {
-    const T = dictionary();
-    const run = (app) => {
-        const sandbox = { APP: app, t: (k, v) => String(T.en[k] || k).replace(/\{\{(\w+)\}\}/g, (m, x) => (v && v[x] !== undefined ? v[x] : m)) };
-        vm.createContext(sandbox);
-        vm.runInContext(extractFunction('startHereLiveSteps') + ';globalThis.f = startHereLiveSteps;', sandbox);
-        return sandbox.f();
-    };
-    const unfunded = run({ MIN_DEPOSIT: 50, liveData: { hasRealDeposit: false } });
-    assert.deepStrictEqual(Array.from(unfunded.map((s) => s.key)), ['startHere.live.stepDeposit', 'startHere.live.step3']);
-    assert.strictEqual(unfunded[0].vars.min, '50', 'the minimum comes from APP.MIN_DEPOSIT');
-
-    const funded = run({ MIN_DEPOSIT: 50, liveData: { hasRealDeposit: true } });
-    assert.deepStrictEqual(Array.from(funded.map((s) => s.key)), ['startHere.live.step3']);
-
-    const custom = run({ MIN_DEPOSIT: 100, liveData: { hasRealDeposit: false } });
-    assert.strictEqual(custom[0].vars.min, '100', 'no hard-coded amount');
-
-    const missing = run({ liveData: null });
-    assert.strictEqual(missing.length, 2, 'an unknown account still gets the deposit step first');
-    assert.strictEqual(missing[0].vars.min, '50', 'falls back to the platform default');
+test('8. the removal changed no translation key set', () => {
+  const T = dictionary();
+  const base = Object.keys(T.en).sort();
+  LANGS.forEach((l) => {
+    assert.ok(T[l], l + ' dictionary must exist');
+    assert.deepStrictEqual(Object.keys(T[l]).sort(), base, l + ' key set must be unchanged');
+  });
+  LANGS.forEach((l) => {
+    assert.ok(T[l]['promo.tradableNotice'], l + ' must keep the promotional-credit notice');
+    assert.ok(!/\{\{/.test(T[l]['promo.tradableNotice']), l + ' notice carries no placeholder');
+  });
 });
 
-test('9. the two new keys are present, localized and placeholder-correct', () => {
-    const T = dictionary();
-    const enKeys = Object.keys(T.en);
-    LANGS.forEach((l) => {
-        assert.strictEqual(Object.keys(T[l]).length, enKeys.length, l + ' key count');
-        assert.ok(T[l]['liveMode.cardTitle'] && T[l]['liveMode.cardTitle'].trim(), l + ' cardTitle');
-        assert.ok(T[l]['startHere.live.stepDeposit'] && T[l]['startHere.live.stepDeposit'].trim(), l + ' stepDeposit');
-        assert.ok(/\{\{min\}\}/.test(T[l]['startHere.live.stepDeposit']), l + ' stepDeposit must interpolate the minimum');
-        assert.ok(!/\{\{/.test(T[l]['liveMode.cardTitle']), l + ' cardTitle has no placeholder');
-        assert.ok(!/\$?\d/.test(T[l]['liveMode.cardTitle']), l + ' cardTitle quotes no amount');
-    });
-    // Arabic stays right-to-left native script; the card title is not English.
-    assert.match(T.ar['liveMode.cardTitle'], /[\u0600-\u06FF]/);
-    assert.match(T.zh['liveMode.cardTitle'], /[\u4e00-\u9FFF]/);
-});
-
-test('10. display-only: no request, no balance write, no gate change', () => {
-    const body = extractFunction('renderLiveModeCard') + extractFunction('startHereLiveSteps');
-    assert.ok(!/fetch\(|\/api\/|liveData\.balance\s*=|localStorage\.setItem/i.test(body));
-    // The checklist never claims an account can trade before it is funded.
-    const T = dictionary();
-    assert.match(T.en['startHere.live.stepDeposit'], /deposit/i);
-    assert.match(T.en['startHere.live.step3'], /trade/i);
+test('9. the removal is presentation-only', () => {
+  const overview = overviewMarkup();
+  assert.ok(!/fetch\(/.test(overview), 'the overview block performs no request');
+  assert.ok(!/live_balance\s*=/.test(overview), 'the overview block writes no balance');
+  assert.ok(!/liveModeCard/.test(overview), 'nothing references the removed card');
 });
