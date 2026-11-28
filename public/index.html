@@ -10272,22 +10272,19 @@ function toggleFaq(btn) {
       <div id="depositHistoryList" style="font-size:10px;text-align:center;color:var(--text-secondary);" data-i18n="deposit.noDeposits">No deposits yet</div>
     </div>
 
-    <!-- DEPOSIT TUTORIALS: third-party purchasing services.
-         For a customer who does not hold USDT yet. The CTA opens the
-         standalone tutorial centre (/deposit-tutorials) in a NEW TAB, so this
-         modal - and any invoice already generated - stays exactly as it is.
-         Display-only: it creates no invoice, sends no request and credits
-         nothing. Paybis / Transak / Trust Wallet are independent third-party
-         services; Kalderix does not sell crypto or process card payments. -->
+    <!-- DEPOSIT FUNDING HELP: third-party purchasing services.
+         For a customer who does not hold USDT yet. Informational only - no
+         link, no request, no invoice, no credit. The tutorial CTA was removed
+         until the tutorial centre is available again; the page itself and its
+         route are untouched. Paybis / Transak / Trust Wallet are independent
+         third-party services; Kalderix does not sell crypto or process card
+         payments. -->
     <div id="depositTutorialsCard" style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:12px;padding:14px;margin:16px 0;">
       <div style="display:flex;align-items:flex-start;gap:10px;">
         <i class="fas fa-graduation-cap" style="color:#3B82F6;font-size:16px;margin-top:2px;"></i>
         <div style="min-width:0;">
           <strong style="display:block;font-size:12px;color:var(--kx-text);overflow-wrap:anywhere;" data-i18n="deposit.tutorials.title">Don't have cryptocurrency yet?</strong>
-          <p style="font-size:11px;color:var(--text-secondary);line-height:1.6;margin:6px 0 10px;overflow-wrap:anywhere;" data-i18n="deposit.tutorials.body">You can purchase cryptocurrency through supported third-party services and transfer it to your Kalderix account. New to crypto? Our video tutorials will guide you.</p>
-          <a id="depositTutorialsCta" class="btn btn-secondary" href="/deposit-tutorials" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:44px;padding:10px 14px;font-size:12px;font-weight:700;text-decoration:none;border-radius:10px;">
-            <i class="fas fa-circle-play" aria-hidden="true"></i> <span data-i18n="deposit.tutorials.cta">Watch Deposit Tutorials</span>
-          </a>
+          <p style="font-size:11px;color:var(--text-secondary);line-height:1.6;margin:6px 0 0;overflow-wrap:anywhere;" data-i18n="deposit.tutorials.body">You can purchase cryptocurrency through supported third-party services and transfer it to your Kalderix account.</p>
           <p style="font-size:10px;color:var(--text-muted);line-height:1.5;margin:8px 0 0;overflow-wrap:anywhere;" data-i18n="deposit.tutorials.note">Paybis, Transak and Trust Wallet are independent third-party services. Kalderix does not sell cryptocurrency or process card payments directly.</p>
         </div>
       </div>
@@ -11840,8 +11837,7 @@ const TRANSLATIONS = {
         'deposit.liveNotice.title': 'Depositing to your LIVE balance',
         'deposit.liveNotice.body': 'This deposit is added to your Live balance and is separate from your promotional credit.',
         'deposit.tutorials.title': 'Don\'t have cryptocurrency yet?',
-        'deposit.tutorials.body': 'You can purchase cryptocurrency through supported third-party services and transfer it to your Kalderix account. New to crypto? Our video tutorials will guide you.',
-        'deposit.tutorials.cta': 'Watch Deposit Tutorials',
+        'deposit.tutorials.body': 'You can purchase cryptocurrency through supported third-party services and transfer it to your Kalderix account.',
         'deposit.tutorials.note': 'Paybis, Transak and Trust Wallet are independent third-party services. Kalderix does not sell cryptocurrency or process card payments directly.',
         'withdraw.tutorial.title': 'Need help withdrawing your funds?',
         'withdraw.tutorial.body': 'Watch our step-by-step Kalderix withdrawal tutorial.',
@@ -13451,8 +13447,7 @@ const TRANSLATIONS = {
         'deposit.liveNotice.title': 'Depositando en tu saldo LIVE',
         'deposit.liveNotice.body': 'Este depósito se suma a tu saldo Live y es independiente de tu crédito promocional.',
         'deposit.tutorials.title': '\u00bfA\u00fan no tienes criptomonedas?',
-        'deposit.tutorials.body': 'Puedes comprar criptomonedas a trav\u00e9s de servicios externos compatibles y transferirlas a tu cuenta de Kalderix. \u00bfEres nuevo en cripto? Nuestros tutoriales en v\u00eddeo te guiar\u00e1n.',
-        'deposit.tutorials.cta': 'Ver tutoriales de dep\u00f3sito',
+        'deposit.tutorials.body': 'Puedes comprar criptomonedas a trav\u00e9s de servicios externos compatibles y transferirlas a tu cuenta de Kalderix.',
         'deposit.tutorials.note': 'Paybis, Transak y Trust Wallet son servicios independientes de terceros. Kalderix no vende criptomonedas ni procesa pagos con tarjeta directamente.',
         'withdraw.tutorial.title': '\u00bfNecesitas ayuda para retirar tus fondos?',
         'withdraw.tutorial.body': 'Mira nuestro tutorial paso a paso para retirar en Kalderix.',
@@ -15063,8 +15058,7 @@ const TRANSLATIONS = {
         'deposit.liveNotice.title': 'Depositando no seu saldo LIVE',
         'deposit.liveNotice.body': 'Este depósito entra no seu saldo Live e é separado do seu crédito promocional.',
         'deposit.tutorials.title': 'Ainda n\u00e3o tem criptomoedas?',
-        'deposit.tutorials.body': 'Voc\u00ea pode comprar criptomoedas por meio de servi\u00e7os de terceiros compat\u00edveis e transferi-las para a sua conta Kalderix. Novo em cripto? Nossos tutoriais em v\u00eddeo v\u00e3o orientar voc\u00ea.',
-        'deposit.tutorials.cta': 'Ver tutoriais de dep\u00f3sito',
+        'deposit.tutorials.body': 'Voc\u00ea pode comprar criptomoedas por meio de servi\u00e7os de terceiros compat\u00edveis e transferi-las para a sua conta Kalderix.',
         'deposit.tutorials.note': 'Paybis, Transak e Trust Wallet s\u00e3o servi\u00e7os independentes de terceiros. A Kalderix n\u00e3o vende criptomoedas nem processa pagamentos com cart\u00e3o diretamente.',
         'withdraw.tutorial.title': 'Precisa de ajuda para sacar seus fundos?',
         'withdraw.tutorial.body': 'Assista ao nosso tutorial passo a passo de saque da Kalderix.',
@@ -16675,8 +16669,7 @@ const TRANSLATIONS = {
         'deposit.liveNotice.title': 'D\u00e9p\u00f4t sur votre solde LIVE',
         'deposit.liveNotice.body': 'Ce dépôt est ajouté à votre solde Live et distinct de votre crédit promotionnel.',
         'deposit.tutorials.title': 'Pas encore de cryptomonnaies ?',
-        'deposit.tutorials.body': 'Vous pouvez acheter des cryptomonnaies via des services tiers compatibles et les transf\u00e9rer sur votre compte Kalderix. Vous d\u00e9butez ? Nos tutoriels vid\u00e9o vous guident.',
-        'deposit.tutorials.cta': 'Voir les tutoriels de d\u00e9p\u00f4t',
+        'deposit.tutorials.body': 'Vous pouvez acheter des cryptomonnaies via des services tiers compatibles et les transf\u00e9rer sur votre compte Kalderix.',
         'deposit.tutorials.note': 'Paybis, Transak et Trust Wallet sont des services tiers ind\u00e9pendants. Kalderix ne vend pas de cryptomonnaies et ne traite pas directement de paiements par carte.',
         'withdraw.tutorial.title': 'Besoin d\'aide pour retirer vos fonds ?',
         'withdraw.tutorial.body': 'Regardez notre tutoriel pas \u00e0 pas pour retirer sur Kalderix.',
@@ -18287,8 +18280,7 @@ const TRANSLATIONS = {
         'deposit.liveNotice.title': '\u0627\u0644\u0625\u064a\u062f\u0627\u0639 \u0641\u064a \u0631\u0635\u064a\u062f\u0643 LIVE',
         'deposit.liveNotice.body': 'يُضاف هذا الإيداع إلى رصيد Live وهو منفصل عن رصيدك الترويجي.',
         'deposit.tutorials.title': '\u0644\u064a\u0633 \u0644\u062f\u064a\u0643 \u0639\u0645\u0644\u0627\u062a \u0631\u0642\u0645\u064a\u0629 \u0628\u0639\u062f\u061f',
-        'deposit.tutorials.body': '\u064a\u0645\u0643\u0646\u0643 \u0634\u0631\u0627\u0621 \u0627\u0644\u0639\u0645\u0644\u0627\u062a \u0627\u0644\u0631\u0642\u0645\u064a\u0629 \u0639\u0628\u0631 \u062e\u062f\u0645\u0627\u062a \u062e\u0627\u0631\u062c\u064a\u0629 \u0645\u062f\u0639\u0648\u0645\u0629 \u0648\u062a\u062d\u0648\u064a\u0644\u0647\u0627 \u0625\u0644\u0649 \u062d\u0633\u0627\u0628\u0643 \u0641\u064a Kalderix. \u0647\u0644 \u0623\u0646\u062a \u062c\u062f\u064a\u062f \u0641\u064a \u0627\u0644\u0639\u0645\u0644\u0627\u062a \u0627\u0644\u0631\u0642\u0645\u064a\u0629\u061f \u0633\u062a\u0633\u0627\u0639\u062f\u0643 \u062f\u0631\u0648\u0633\u0646\u0627 \u0627\u0644\u0645\u0635\u0648\u0631\u0629.',
-        'deposit.tutorials.cta': '\u0645\u0634\u0627\u0647\u062f\u0629 \u062f\u0631\u0648\u0633 \u0627\u0644\u0625\u064a\u062f\u0627\u0639',
+        'deposit.tutorials.body': '\u064a\u0645\u0643\u0646\u0643 \u0634\u0631\u0627\u0621 \u0627\u0644\u0639\u0645\u0644\u0627\u062a \u0627\u0644\u0631\u0642\u0645\u064a\u0629 \u0639\u0628\u0631 \u062e\u062f\u0645\u0627\u062a \u062e\u0627\u0631\u062c\u064a\u0629 \u0645\u062f\u0639\u0648\u0645\u0629 \u0648\u062a\u062d\u0648\u064a\u0644\u0647\u0627 \u0625\u0644\u0649 \u062d\u0633\u0627\u0628\u0643 \u0641\u064a Kalderix.',
         'deposit.tutorials.note': 'Paybis \u0648Transak \u0648Trust Wallet \u062e\u062f\u0645\u0627\u062a \u0645\u0633\u062a\u0642\u0644\u0629 \u062a\u0627\u0628\u0639\u0629 \u0644\u062c\u0647\u0627\u062a \u062e\u0627\u0631\u062c\u064a\u0629. \u0644\u0627 \u062a\u0628\u064a\u0639 Kalderix \u0627\u0644\u0639\u0645\u0644\u0627\u062a \u0627\u0644\u0631\u0642\u0645\u064a\u0629 \u0648\u0644\u0627 \u062a\u0639\u0627\u0644\u062c \u0627\u0644\u0645\u062f\u0641\u0648\u0639\u0627\u062a \u0628\u0627\u0644\u0628\u0637\u0627\u0642\u0629 \u0645\u0628\u0627\u0634\u0631\u0629.',
         'withdraw.tutorial.title': '\u0647\u0644 \u062a\u062d\u062a\u0627\u062c \u0645\u0633\u0627\u0639\u062f\u0629 \u0641\u064a \u0633\u062d\u0628 \u0623\u0645\u0648\u0627\u0644\u0643\u061f',
         'withdraw.tutorial.body': '\u0634\u0627\u0647\u062f \u062f\u0631\u0633\u0646\u0627 \u062e\u0637\u0648\u0629 \u0628\u062e\u0637\u0648\u0629 \u0644\u0633\u062d\u0628 \u0627\u0644\u0623\u0645\u0648\u0627\u0644 \u0645\u0646 Kalderix.',
@@ -19899,8 +19891,7 @@ const TRANSLATIONS = {
         'deposit.liveNotice.title': '\u5165\u91d1\u81f3\u60a8\u7684 LIVE \u4f59\u989d',
         'deposit.liveNotice.body': '此入金将计入您的 Live 余额，与促销信用分开。',
         'deposit.tutorials.title': '\u8fd8\u6ca1\u6709\u52a0\u5bc6\u8d27\u5e01\uff1f',
-        'deposit.tutorials.body': '\u60a8\u53ef\u4ee5\u901a\u8fc7\u53d7\u652f\u6301\u7684\u7b2c\u4e09\u65b9\u670d\u52a1\u8d2d\u4e70\u52a0\u5bc6\u8d27\u5e01\uff0c\u5e76\u5c06\u5176\u8f6c\u5165\u60a8\u7684 Kalderix \u8d26\u6237\u3002\u521a\u63a5\u89e6\u52a0\u5bc6\u8d27\u5e01\uff1f\u6211\u4eec\u7684\u89c6\u9891\u6559\u7a0b\u4f1a\u5f15\u5bfc\u60a8\u3002',
-        'deposit.tutorials.cta': '\u89c2\u770b\u5165\u91d1\u6559\u7a0b',
+        'deposit.tutorials.body': '\u60a8\u53ef\u4ee5\u901a\u8fc7\u53d7\u652f\u6301\u7684\u7b2c\u4e09\u65b9\u670d\u52a1\u8d2d\u4e70\u52a0\u5bc6\u8d27\u5e01\uff0c\u5e76\u5c06\u5176\u8f6c\u5165\u60a8\u7684 Kalderix \u8d26\u6237\u3002',
         'deposit.tutorials.note': 'Paybis\u3001Transak \u548c Trust Wallet \u662f\u72ec\u7acb\u7684\u7b2c\u4e09\u65b9\u670d\u52a1\u3002Kalderix \u4e0d\u76f4\u63a5\u51fa\u552e\u52a0\u5bc6\u8d27\u5e01\uff0c\u4e5f\u4e0d\u76f4\u63a5\u5904\u7406\u94f6\u884c\u5361\u652f\u4ed8\u3002',
         'withdraw.tutorial.title': '\u9700\u8981\u63d0\u73b0\u5e2e\u52a9\u5417\uff1f',
         'withdraw.tutorial.body': '\u89c2\u770b\u6211\u4eec\u7684 Kalderix \u63d0\u73b0\u5206\u6b65\u6559\u7a0b\u3002',

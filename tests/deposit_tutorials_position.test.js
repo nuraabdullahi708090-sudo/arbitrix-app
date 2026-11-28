@@ -78,8 +78,10 @@ test('3. the tutorials card is the last content block of the panel', () => {
     const hidden = at('<!-- Hidden inputs -->');
     assert.ok(card < hidden, 'the card precedes the hidden inputs');
     // Nothing but whitespace/comments may follow the card before the hidden inputs.
-    const between = DIALOG.slice(DIALOG.indexOf('</div>', DIALOG.indexOf('id="depositTutorialsCta"')), hidden);
+    const cardOpen = DIALOG.indexOf('<div id="depositTutorialsCard"');
+    const between = DIALOG.slice(DIALOG.indexOf('</div>', DIALOG.indexOf('data-i18n="deposit.tutorials.note"')), hidden);
     const afterCard = between.slice(between.lastIndexOf('</div>'));
+    assert.ok(cardOpen > 0);
     assert.strictEqual(afterCard.replace(/<\/div>/g, '').trim(), '');
 });
 
@@ -96,25 +98,25 @@ test('4. the card left step 1 and now belongs to the panel itself', () => {
 /* ------------------------------------------------------------------ *
  * 2. Nothing was lost from the card
  * ------------------------------------------------------------------ */
-test('5. the tutorial content, link and tap target are preserved', () => {
+test('5. the funding-help content survives, the tutorial CTA does not', () => {
     const card = at('<div id="depositTutorialsCard"');
     const block = DIALOG.slice(card, at('<!-- Hidden inputs -->', card));
     assert.match(block, /data-i18n="deposit\.tutorials\.title"/);
     assert.match(block, /data-i18n="deposit\.tutorials\.body"/);
-    assert.match(block, /data-i18n="deposit\.tutorials\.cta"/);
     assert.match(block, /data-i18n="deposit\.tutorials\.note"/);
-    assert.match(block, /href="\/deposit-tutorials"/);
-    assert.match(block, /target="_blank"/);
-    assert.match(block, /rel="noopener noreferrer"/);
-    assert.match(block, /min-height:44px/);
+    // Temporary removal: the CTA and its broken link are gone, and nothing
+    // replaced them with another destination.
+    assert.ok(!block.includes('deposit.tutorials.cta'));
+    assert.ok(!block.includes('href="/deposit-tutorials"'));
+    assert.ok(!/target="_blank"|Watch Deposit Tutorials/.test(block));
     // Display-only: no deposit code, no inputs, no handlers.
     assert.ok(!/onclick=|onchange=/.test(block));
     assert.ok(!/<input|<form|<select|<textarea/i.test(block));
     assert.ok(!/create-invoice|requestDepositAddress|getAddressBtn/.test(block));
 });
 
-test('6. the four tutorial translations still exist in every locale', () => {
-    ['deposit.tutorials.title', 'deposit.tutorials.body', 'deposit.tutorials.cta', 'deposit.tutorials.note']
+test('6. the three remaining card translations still exist in every locale', () => {
+    ['deposit.tutorials.title', 'deposit.tutorials.body', 'deposit.tutorials.note']
         .forEach((key) => {
             const occurrences = (INDEX.match(new RegExp("'" + key.replace(/\./g, '\\.') + "'", 'g')) || []).length;
             assert.ok(occurrences >= 6, key + ' must be defined for all 6 locales (found ' + occurrences + ')');

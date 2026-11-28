@@ -40,7 +40,7 @@ const URLS = {
 };
 
 const NEW_APP_KEYS = [
-    'deposit.tutorials.title', 'deposit.tutorials.body', 'deposit.tutorials.cta', 'deposit.tutorials.note',
+    'deposit.tutorials.title', 'deposit.tutorials.body', 'deposit.tutorials.note',
     'withdraw.tutorial.title', 'withdraw.tutorial.body', 'withdraw.tutorial.cta', 'withdraw.tutorial.note'
 ];
 
@@ -286,9 +286,9 @@ test('12. the page title is localized from the dictionary', () => {
 
 // ------------------------------------------- 5. deposit + withdrawal in-app ---
 
-test('13. the deposit modal shows the tutorial CTA, opening the page in a new tab', () => {
+test('13. the deposit modal keeps the funding-help card, with no tutorial link (temporary)', () => {
     const cardStart = INDEX.indexOf('id="depositTutorialsCard"');
-    assert.ok(cardStart > 0, 'the deposit modal must contain the tutorial card');
+    assert.ok(cardStart > 0, 'the deposit modal must still contain the funding-help card');
 
     // Moved to the very bottom of the dialog so the deposit form (amount ->
     // Generate Payment) comes first for users who already hold crypto.
@@ -300,15 +300,23 @@ test('13. the deposit modal shows the tutorial CTA, opening the page in a new ta
     assert.ok(hiddenInputs > cardStart, 'the card is the last content block of the dialog');
 
     const block = INDEX.slice(cardStart, hiddenInputs);
-    assert.ok(block.includes('href="/deposit-tutorials"'));
-    assert.ok(/target="_blank"/.test(block) && /rel="noopener noreferrer"/.test(block));
     assert.match(block, /data-i18n="deposit\.tutorials\.title"/);
     assert.match(block, /data-i18n="deposit\.tutorials\.body"/);
-    assert.match(block, /data-i18n="deposit\.tutorials\.cta"/);
     assert.match(block, /data-i18n="deposit\.tutorials\.note"/);
-    assert.match(block, /min-height:44px/, 'a mobile-sized tap target');
-    assert.ok(!/onclick=/.test(block), 'the CTA is a plain link: it runs no deposit code');
-    assert.ok(!/<input/i.test(block));
+
+    // The temporary removal: no button, no link, no tutorial promotion.
+    assert.ok(!block.includes('depositTutorialsCta'), 'the CTA button is gone');
+    assert.ok(!block.includes('href="/deposit-tutorials"'), 'the broken link is gone');
+    assert.ok(!block.includes('deposit.tutorials.cta'), 'its string is no longer referenced');
+    assert.ok(!/fa-circle-play|Watch Deposit Tutorials/.test(block), 'no play icon or button label');
+    assert.ok(!/New to crypto\?/.test(block), 'the tutorial sentence is gone');
+    assert.ok(!/deposit-tutorials/.test(block), 'nothing in the card points at the tutorial page');
+
+    // Preserved: the explanation, the three services and the third-party note.
+    assert.match(block, /purchase cryptocurrency through supported third-party services/);
+    assert.match(block, /Paybis, Transak and Trust Wallet are independent third-party services/);
+    assert.ok(!/onclick=/.test(block), 'the card runs no code');
+    assert.ok(!/<input|<a\s/i.test(block), 'no inputs and no anchors left in the card');
     assert.ok(!/getAddressBtn|requestDepositAddress|create-invoice/.test(block));
 });
 
@@ -333,7 +341,7 @@ test('14. the withdrawal modal shows the withdrawal tutorial (post 19)', () => {
     assert.ok(!/<input/i.test(block));
 });
 
-test('15. the eight new app keys exist in all six locales', () => {
+test('15. the seven card and withdrawal keys exist in all six locales', () => {
     const T = loadAppTranslations();
     LANGS.forEach((lang) => {
         NEW_APP_KEYS.forEach((key) => {
@@ -341,8 +349,8 @@ test('15. the eight new app keys exist in all six locales', () => {
             assert.ok(String(T[lang][key]).trim().length > 0, lang + '.' + key + ' is empty');
         });
     });
-    assert.strictEqual(Object.keys(T.en).length, 1591, 'dictionary size pinned at 1591 keys/locale');
-    LANGS.forEach((lang) => assert.strictEqual(Object.keys(T[lang]).length, 1591));
+    assert.strictEqual(Object.keys(T.en).length, 1590, 'dictionary size pinned at 1590 keys/locale');
+    LANGS.forEach((lang) => assert.strictEqual(Object.keys(T[lang]).length, 1590));
 });
 
 test('16. every data-i18n reference on the page and in the app is defined', () => {

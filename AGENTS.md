@@ -11572,3 +11572,60 @@ URL registration, Render env and the specific uncredited payment still need an o
   control returns to the dashboard and the session survives.
 - This note is intentionally LEFT UNCOMMITTED so recording it does not trigger a second
   Render rebuild (the working tree therefore shows AGENTS.md modified - documentation only).
+
+## Compact licence footer link on every surface DEPLOYED (2026-11-28)
+- Commit 14bd352 ("refactor: replace the operating license card with a compact footer
+  link"), parent f6c1ac0; pushed f6c1ac0..14bd352 main -> main as a fast-forward
+  (verified with `git merge-base --is-ancestor`; no force/rebase/reset). CI on 14bd352:
+  success. Pre-push gate: npm test = 4546 tests / 4545 pass / 0 fail / 1 skipped.
+- Render auto-deployed in ~56 s. The served https://arbitrix.pro/ is BYTE-IDENTICAL to
+  the repo (sha256 f869268f3caa2ac559ab004d4a443e5da48ef421a59f554214818c876902fe48,
+  1,968,266 B). The viewer (/operating-license) and the document
+  (/license/kalderix-operating-license.jpg, 198,153 B) are byte-identical too.
+- LIVE: one compact ghost link (icon + label, 44 px) per surface - the public landing
+  footer above the risk disclaimer, the signed-in app footer (last child of
+  #mainContent), and the auth screen's inline link. The cards are gone from both.
+- SERVED MARKERS: `<footer class="app-footer">`, `.app-footer{display:flex;
+  justify-content:center;`, `body:has(#metaConsentBanner) .app-footer{padding-bottom:
+  140px;}`, two `class="kx-license-link"` anchors, three `/operating-license` hrefs,
+  `data-i18n="license.title"`; zero `kx-license-card`, `id="licenseCard"`,
+  `license.desc` or `license.cta`.
+- PRODUCTION SMOKE (headless Chromium on the live site; /api stubbed in-page so nothing
+  was created server-side) = 13/13: anonymous landing at 1280/390 (one visible link,
+  above the disclaimer, 44 px, ghost, no overflow, no errors); signed-in shell at 390 in
+  en and ar (footer is the last child of #mainContent, one visible licence link, 44 px,
+  centred, tappable, clear of the chat launcher, ar RTL); clicking the live app-footer
+  link opens the viewer with the document and Back, and Back restores the shell and the
+  session.
+- LOCAL EVIDENCE FROM THE REVIEW: app_footer 173/173 (en/es/ar/zh x 1280/768/390/320,
+  both chat-launcher builds, cookie-banner clearance), app_footer_views 24/24 (footer
+  present in overview/markets/referral), landing regression 259/259.
+- This note is intentionally LEFT UNCOMMITTED so recording it does not trigger a second
+  Render rebuild (the working tree therefore shows AGENTS.md modified - documentation only).
+
+## Deposit dialog: tutorial CTA removed (TEMPORARY, 2026-11-28, uncommitted)
+- The deposit tutorial link (/deposit-tutorials) stopped working, so its promotion was
+  pulled from the deposit modal until the tutorial is available again. Frontend copy and
+  markup only: NO change to deposit creation, invoice generation, payment integrations,
+  wallet logic, network warnings or the /deposit-tutorials page/route (still served, 200).
+- REMOVED: the `#depositTutorialsCta` anchor ("Watch Deposit Tutorials", full-width ghost
+  button, `target=_blank`) and the sentence "New to crypto? Our video tutorials will guide
+  you." (the second half of `deposit.tutorials.body`, in all six locales). The
+  `deposit.tutorials.cta` key was deleted with it: dictionary 1591 -> 1590 keys/locale.
+- KEPT: `#depositTutorialsCard` ("Don't have cryptocurrency yet?"), the purchase-through-
+  third-parties explanation, the Paybis / Transak / Trust Wallet third-party disclaimer
+  (`deposit.tutorials.note`) and the graduation-cap icon. No invented replacement URL.
+- SPACING: the body's bottom margin drops 10px -> 0 so the note's own 8px top margin is
+  the only gap under it (rhythm is 6px title->body, 8px body->note). Measured card height
+  (deposit modal, en): 1280 223 -> 151px, 390 240 -> 169px, 320 258 -> 187px; es keeps a
+  wrapped line so -53px; ar/zh -107/-72px at 1280. No layout shift elsewhere: the card is
+  still the last content block before the hidden inputs.
+- Tests: tests/deposit_tutorials_page.test.js (test 13 rewritten: card kept, NO CTA/link/
+  tutorial sentence, services + explanation preserved) and deposit_tutorials_position.test.js
+  (tests 3/5/6 follow the removed CTA) + dictionary pins 1591 -> 1590 in 17 files and
+  landing_testimonials BASE_OUTSIDE 1540 -> 1539. npm test = 4546 tests / 4545 pass / 0 fail
+  / 1 skipped. Browser harness 84/84 (en/es/ar/zh x 1280/390/320: no anchor or button in
+  the card, no tutorial wording, 6/8px rhythm, shorter card, no overflow, no errors).
+- TRAP THAT BIT: the blanket "1591 -> 1590" dictionary-pin sweep also rewrote a PHONE
+  FIXTURE in tests/marketing_content.test.js ('+31591345678' contains '1591'). It was
+  reverted before the final run. Diff fixture data after any numeric pin sweep.

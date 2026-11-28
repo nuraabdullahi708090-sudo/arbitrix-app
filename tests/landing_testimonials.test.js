@@ -21,7 +21,7 @@ const vm = require('node:vm');
 const ROOT = path.join(__dirname, '..');
 const INDEX = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-const DICT_SIZE = 1591; // demo mode removed: 1640 -> 1590 -> 1595 -> 1591 keys/locale
+const DICT_SIZE = 1590; // demo mode removed: 1640 -> 1590 -> 1595 -> 1591 -> 1590 keys/locale
 // +1 license.* key for the operating-license footer link (the four card-only
 // keys left with the card).
 // 1590 keys/locale now = 1556 outside landing.testimonials.* plus the 24
@@ -45,7 +45,7 @@ const DICT_SIZE = 1591; // demo mode removed: 1640 -> 1590 -> 1595 -> 1591 keys/
 // (support.startChat / support.chatHint), i.e. -2.
 // Bumped by the 5 read-only admin reconciliation keys added with the Q8QPay
 // settlement work (1590 keys/locale; testimonials keys themselves unchanged).
-const BASE_OUTSIDE_TESTIMONIALS = 1540;
+const BASE_OUTSIDE_TESTIMONIALS = 1539;
   // carries primaryLabel/backupLabel/oliviaBtn/alexBtn/alexNote and dropped the two
   // retired deposit.crypto.* keys (net +3).
 
