@@ -40,11 +40,32 @@ const URLS = {
 };
 
 const NEW_APP_KEYS = [
-    'deposit.tutorials.title', 'deposit.tutorials.body', 'deposit.tutorials.note',
     'withdraw.tutorial.title', 'withdraw.tutorial.body', 'withdraw.tutorial.cta', 'withdraw.tutorial.note'
 ];
 
 // ------------------------------------------------------------------ helpers ---
+
+// Returns the markup that FOLLOWS the div starting at `marker`, using a tag
+// balance walk so the check cannot be fooled by nested divs.
+function tailAfterBlock(markup, marker) {
+    const start = markup.indexOf(marker);
+    assert.ok(start > -1, 'expected block: ' + marker);
+    const re = /<div\b|<\/div>/g;
+    re.lastIndex = start;
+    let depth = 0;
+    let opened = false;
+    let m;
+    while ((m = re.exec(markup))) {
+        if (m[0] === '</div>') {
+            depth -= 1;
+            if (opened && depth === 0) return markup.slice(m.index + 6);
+        } else {
+            depth += 1;
+            opened = true;
+        }
+    }
+    return '';
+}
 
 function loadPageTranslations() {
     const start = PAGE.indexOf('var TRANSLATIONS = {');
@@ -286,38 +307,31 @@ test('12. the page title is localized from the dictionary', () => {
 
 // ------------------------------------------- 5. deposit + withdrawal in-app ---
 
-test('13. the deposit modal keeps the funding-help card, with no tutorial link (temporary)', () => {
-    const cardStart = INDEX.indexOf('id="depositTutorialsCard"');
-    assert.ok(cardStart > 0, 'the deposit modal must still contain the funding-help card');
-
-    // Moved to the very bottom of the dialog so the deposit form (amount ->
-    // Generate Payment) comes first for users who already hold crypto.
-    const history = INDEX.indexOf('class="deposit-history"');
-    const hiddenInputs = INDEX.indexOf('<!-- Hidden inputs -->', cardStart);
+test('13. the deposit dialog no longer carries a funding-help or tutorial card', () => {
     const panelStart = INDEX.indexOf('id="depositModalContent"');
-    assert.ok(panelStart > 0 && panelStart < cardStart, 'the card belongs to the deposit panel');
-    assert.ok(history < cardStart, 'the card sits below the Recent Deposits block');
-    assert.ok(hiddenInputs > cardStart, 'the card is the last content block of the dialog');
+    assert.ok(panelStart > 0, 'the deposit panel must exist');
+    const hiddenInputs = INDEX.indexOf('<!-- Hidden inputs -->', panelStart);
+    assert.ok(hiddenInputs > panelStart);
+    const panel = INDEX.slice(panelStart, hiddenInputs);
 
-    const block = INDEX.slice(cardStart, hiddenInputs);
-    assert.match(block, /data-i18n="deposit\.tutorials\.title"/);
-    assert.match(block, /data-i18n="deposit\.tutorials\.body"/);
-    assert.match(block, /data-i18n="deposit\.tutorials\.note"/);
+    // The whole element is gone: container, icon, heading, explanation, disclaimer.
+    assert.ok(!panel.includes('depositTutorialsCard'), 'the card element is removed');
+    assert.ok(!panel.includes('fa-graduation-cap'), 'the graduation-cap icon is removed');
+    assert.ok(!/data-i18n="deposit\.tutorials\./.test(panel), 'no card translation is referenced');
+    assert.ok(!/Don't have cryptocurrency yet/.test(panel), 'the heading is gone');
+    assert.ok(!/Paybis, Transak and Trust Wallet/.test(panel), 'the third-party disclaimer is gone');
+    assert.ok(!/purchase cryptocurrency through supported third-party services/.test(panel),
+        'the purchase explanation is gone');
+    assert.ok(!/deposit-tutorials|depositTutorialsCta/.test(panel),
+        'nothing in the dialog points at the tutorial page');
 
-    // The temporary removal: no button, no link, no tutorial promotion.
-    assert.ok(!block.includes('depositTutorialsCta'), 'the CTA button is gone');
-    assert.ok(!block.includes('href="/deposit-tutorials"'), 'the broken link is gone');
-    assert.ok(!block.includes('deposit.tutorials.cta'), 'its string is no longer referenced');
-    assert.ok(!/fa-circle-play|Watch Deposit Tutorials/.test(block), 'no play icon or button label');
-    assert.ok(!/New to crypto\?/.test(block), 'the tutorial sentence is gone');
-    assert.ok(!/deposit-tutorials/.test(block), 'nothing in the card points at the tutorial page');
-
-    // Preserved: the explanation, the three services and the third-party note.
-    assert.match(block, /purchase cryptocurrency through supported third-party services/);
-    assert.match(block, /Paybis, Transak and Trust Wallet are independent third-party services/);
-    assert.ok(!/onclick=/.test(block), 'the card runs no code');
-    assert.ok(!/<input|<a\s/i.test(block), 'no inputs and no anchors left in the card');
-    assert.ok(!/getAddressBtn|requestDepositAddress|create-invoice/.test(block));
+    // The dialog now ends with Recent Deposits, directly before the hidden inputs.
+    const history = panel.indexOf('<div class="deposit-history"');
+    assert.ok(history > 0, 'Recent Deposits stays in the dialog');
+    assert.ok(history > panel.indexOf('id="depositActions"') - 1 || history > panel.indexOf('id="depositSuccessSection"'));
+    // Nothing but whitespace may follow the history block inside the panel.
+    const tail = tailAfterBlock(panel, '<div class="deposit-history"');
+    assert.strictEqual(tail.trim(), '', 'Recent Deposits is the last content block of the dialog');
 });
 
 test('14. the withdrawal modal shows the withdrawal tutorial (post 19)', () => {
@@ -341,7 +355,7 @@ test('14. the withdrawal modal shows the withdrawal tutorial (post 19)', () => {
     assert.ok(!/<input/i.test(block));
 });
 
-test('15. the seven card and withdrawal keys exist in all six locales', () => {
+test('15. the withdrawal-tutorial keys exist in all six locales', () => {
     const T = loadAppTranslations();
     LANGS.forEach((lang) => {
         NEW_APP_KEYS.forEach((key) => {
@@ -349,8 +363,8 @@ test('15. the seven card and withdrawal keys exist in all six locales', () => {
             assert.ok(String(T[lang][key]).trim().length > 0, lang + '.' + key + ' is empty');
         });
     });
-    assert.strictEqual(Object.keys(T.en).length, 1590, 'dictionary size pinned at 1590 keys/locale');
-    LANGS.forEach((lang) => assert.strictEqual(Object.keys(T[lang]).length, 1590));
+    assert.strictEqual(Object.keys(T.en).length, 1587, 'dictionary size pinned at 1587 keys/locale');
+    LANGS.forEach((lang) => assert.strictEqual(Object.keys(T[lang]).length, 1587));
 });
 
 test('16. every data-i18n reference on the page and in the app is defined', () => {
@@ -366,12 +380,12 @@ test('16. every data-i18n reference on the page and in the app is defined', () =
 // --------------------------------------------------------- 6. no interference ---
 
 test('17. the tutorial UI cannot create an invoice or a withdrawal', () => {
-    const cardStart = INDEX.indexOf('id="depositTutorialsCard"');
-    const cardBlock = INDEX.slice(cardStart, INDEX.indexOf('<!-- Hidden inputs -->', cardStart));
     const withdrawStart = INDEX.indexOf('id="withdrawTutorialBox"');
     const withdrawBlock = INDEX.slice(withdrawStart,
         INDEX.indexOf('<div style="text-align:center;margin-bottom:12px;">', withdrawStart));
-    [cardBlock, withdrawBlock].forEach((block) => {
+    const historyStart = INDEX.indexOf('<div class="deposit-history"');
+    const historyBlock = INDEX.slice(historyStart, INDEX.indexOf('<!-- Hidden inputs -->', historyStart));
+    [historyBlock, withdrawBlock].forEach((block) => {
         assert.ok(!/create-invoice|payment\/create|withdraw\/request|submitWithdraw|requestDepositAddress/.test(block));
         assert.ok(!/<form|<input|<select|<textarea/i.test(block));
         assert.ok(!/onclick=|onchange=/.test(block));
@@ -410,8 +424,9 @@ test('19. the deposit modal structure keeps its single scroll container and opti
     assert.ok(at('id="depositOptions"') < at('id="depositCryptoFlow"'));
     assert.ok(at('id="depositCryptoFlow"') < at('id="getAddressBtn"'));
     assert.ok(at('id="depositCryptoFlow"') < at('id="getAddressBtn"'));
-    assert.ok(at('class="deposit-history"') < at('id="depositTutorialsCard"'));
-    assert.ok(at('id="depositTutorialsCard"') < at('<!-- Hidden inputs -->'));
+    assert.ok(at('id="depositSuccessSection"') < at('class="deposit-history"'));
+    assert.ok(at('class="deposit-history"') < at('<!-- Hidden inputs -->'));
+    assert.ok(!INDEX.includes('id="depositTutorialsCard"'), 'the funding-help card stays removed');
 });
 
 // ---------------------------------------------------------------- 7. mobile ---
@@ -424,6 +439,7 @@ test('20. the page is mobile-first and cannot overflow', () => {
     assert.ok((PAGE.match(/overflow-wrap: anywhere/g) || []).length >= 10, 'long translations must wrap');
     assert.match(PAGE, /\.btn \{[\s\S]*?min-height: 46px;/);
     assert.match(PAGE, /prefers-reduced-motion: reduce/);
-    assert.match(INDEX, /id="depositTutorialsCard"[\s\S]{0,800}overflow-wrap:anywhere/);
+    assert.ok(!INDEX.includes('id="depositTutorialsCard"'), 'the removed card cannot overflow');
+    assert.match(INDEX, /class="deposit-history" style="margin-top:20px;padding-top:16px/);
     assert.match(INDEX, /id="withdrawTutorialBox"[\s\S]{0,800}overflow-wrap:anywhere/);
 });

@@ -11629,3 +11629,57 @@ URL registration, Render env and the specific uncredited payment still need an o
 - TRAP THAT BIT: the blanket "1591 -> 1590" dictionary-pin sweep also rewrote a PHONE
   FIXTURE in tests/marketing_content.test.js ('+31591345678' contains '1591'). It was
   reverted before the final run. Diff fixture data after any numeric pin sweep.
+
+## Deposit tutorial promotion removal MERGED + LIVE (2026-11-28)
+- Commit f4a9d5b ("fix: pull the deposit tutorial promotion until the tutorials work
+  again"), parent 14bd352; pushed 14bd352..f4a9d5b main -> main as a fast-forward
+  (`git merge-base --is-ancestor` checked first; no force/rebase/reset). CI on f4a9d5b:
+  success. Pre-push gate: npm test = 4546 tests / 4545 pass / 0 fail / 1 skipped.
+- NOTE: a push to main auto-deploys on Render, so "merge" publishes here; the build went
+  live ~32 s after the push and the served https://arbitrix.pro/ is BYTE-IDENTICAL to the
+  repo (sha256 1aacc16da2cc7ee41f350f8a04e2d521e5e29fb781e50f365872480b6626dba6,
+  1,966,535 B).
+- LIVE MARKERS: `id="depositTutorialsCard"` + the title/body/note keys present; zero
+  `depositTutorialsCta`, `deposit.tutorials.cta`, "Watch Deposit Tutorials",
+  "New to crypto?" or `href="/deposit-tutorials"`; the Paybis/Transak/Trust Wallet note
+  and the purchase sentence intact; the body's new `margin:6px 0 0` shipped.
+  `/deposit-tutorials` still answers 200 (36,314 B) - the page and route are untouched.
+- PRODUCTION SMOKE (headless Chromium, /api stubbed in-page): 10/10 - the live deposit
+  card is 151 px at 1280 and 169 px at 390 with the 6/8 px rhythm, zero anchors or
+  buttons inside it, no tutorial wording, the amount field and Generate Payment intact,
+  no overflow, no page errors.
+- This note is intentionally LEFT UNCOMMITTED so recording it does not trigger a second
+  Render rebuild (the working tree therefore shows AGENTS.md modified - documentation only).
+
+## Deposit dialog: funding-help card retired (2026-11-28, uncommitted)
+- The "Don't have cryptocurrency yet?" card was deleted outright now that its tutorial CTA
+  is gone: element `#depositTutorialsCard`, the graduation-cap icon, the heading, the
+  third-party purchase explanation and the Paybis / Transak / Trust Wallet disclaimer are
+  all removed, plus its three keys `deposit.tutorials.title|body|note` in all six locales
+  (dictionary 1590 -> 1587). The card used inline styles only, so no CSS block existed to
+  remove (`grep` for `.deposit-tutorials*` / `#depositTutorialsCard` = 0).
+- The dialog now ends with Recent Deposits: `#depositActionButtons` -> `.deposit-history`
+  -> `<!-- Hidden inputs -->`, closed by the panel's own `padding:0 20px 24px`
+  (`0 16px 20px` <=640px). Measured tail under Recent Deposits = 25px (the 24px padding);
+  when the full-screen phone sheet is taller than its content the sheet simply fills, and
+  in every case the tail is padding only - no orphan gap where the card used to be.
+- UNCHANGED: amount input, the four presets ($50/$250/$500/$1,000), Generate Payment
+  (still calls requestDepositAddress), the USDT/TRON (TRC20) warning, Recent Deposits,
+  invoice creation and every payment/wallet path. `/deposit-tutorials` itself and its
+  route stay served; the page now has NO in-app entry point, which is the point of the
+  temporary removal.
+- TESTS: `tests/deposit_tutorials_position.test.js` (all about the card's position) was
+  replaced by `tests/deposit_dialog_order.test.js` (6 tests: section order, the card leaves
+  nothing behind, Recent Deposits is the last block, panel padding at both breakpoints,
+  the deposit mechanics, the withdrawal keys). `tests/deposit_tutorials_page.test.js`
+  test 13 now asserts the card's absence, and its `deposit_single_route` / slice pins were
+  repointed at the history block. Dictionary pins 1590 -> 1587 in 21 test lines plus
+  landing_testimonials DICT_SIZE/BASE_OUTSIDE 1536. npm test = 4544 tests / 4543 pass /
+  0 fail / 1 skipped.
+- Browser harness (en/es/ar/zh x 1280/390/320, both dialog steps) = 108/108: no card, no
+  card copy, Recent Deposits last, tail = padding only, form intact, invoice step renders,
+  no overflow, no errors.
+- TRAP AGAIN: a blanket numeric pin sweep is unsafe in this repo - `+31591345678` contains
+  a pin value. This time the sweep aborted on an unguarded line, `tests/` was reset from
+  HEAD and the pins redone with a per-line pattern guard plus manual handling of the two
+  derived constants in landing_testimonials.

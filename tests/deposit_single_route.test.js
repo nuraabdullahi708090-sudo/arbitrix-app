@@ -51,7 +51,7 @@ function translations() {
 // do with the removed payment partners).
 function depositMarkup() {
     const start = INDEX.indexOf('<div class="deposit-modal" id="depositModal">');
-    const end = INDEX.indexOf('id="depositTutorialsCard"', start);
+    const end = INDEX.indexOf("<!-- Hidden inputs -->", start);
     assert.ok(start > 0 && end > start, 'deposit modal must be locatable');
     return INDEX.slice(start, end);
 }

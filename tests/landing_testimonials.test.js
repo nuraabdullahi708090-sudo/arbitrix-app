@@ -21,10 +21,10 @@ const vm = require('node:vm');
 const ROOT = path.join(__dirname, '..');
 const INDEX = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
 const LANGS = ['en', 'es', 'pt', 'fr', 'ar', 'zh'];
-const DICT_SIZE = 1590; // demo mode removed: 1640 -> 1590 -> 1595 -> 1591 -> 1590 keys/locale
+const DICT_SIZE = 1587; // demo mode removed: 1640 -> 1590 -> 1595 -> 1591 -> 1590 -> 1587 (deposit help card retired)
 // +1 license.* key for the operating-license footer link (the four card-only
 // keys left with the card).
-// 1590 keys/locale now = 1556 outside landing.testimonials.* plus the 24
+// 1587 keys/locale now = 1556 outside landing.testimonials.* plus the 24
 // landing.testimonials.* keys and the 2 bot.* engine-disclosure keys
 // (1574 + 24 + 2 = 1600). The most recent additions are the 8 deposit/withdrawal
 // tutorial keys (deposit.tutorials.* and withdraw.tutorial.*) added with the
@@ -36,7 +36,7 @@ const DICT_SIZE = 1590; // demo mode removed: 1640 -> 1590 -> 1595 -> 1591 -> 15
 // telegramLink.* keys for secure Telegram account linking (Phase 1), the
 // expanded landing.assets.* universe (metals) and the 4 remaining landing
 // arbOpp.* notification keys.
-// 1552 = 1590 dictionary keys - 24 landing.testimonials.* keys - 17 allowed extras.
+// 1552 = 1587 dictionary keys - 24 landing.testimonials.* keys - 17 allowed extras.
 // outside this section is retired (the demo CTA simplification retired six).
 // 1534 = outside landing.testimonials.* minus ALLOWED_EXTRA. The last change was
 // the in-app-support consolidation: four customer-facing Telegram support keys
@@ -45,7 +45,7 @@ const DICT_SIZE = 1590; // demo mode removed: 1640 -> 1590 -> 1595 -> 1591 -> 15
 // (support.startChat / support.chatHint), i.e. -2.
 // Bumped by the 5 read-only admin reconciliation keys added with the Q8QPay
 // settlement work (1590 keys/locale; testimonials keys themselves unchanged).
-const BASE_OUTSIDE_TESTIMONIALS = 1539;
+const BASE_OUTSIDE_TESTIMONIALS = 1536;
   // carries primaryLabel/backupLabel/oliviaBtn/alexBtn/alexNote and dropped the two
   // retired deposit.crypto.* keys (net +3).
 
