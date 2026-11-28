@@ -69,38 +69,6 @@ function extractFunction(name) {
   return sliceFunction(INDEX, name);
 }
 
-function makeEl(id) {
-  const el = {
-    id, style: {}, textContent: '', className: '', attrs: {}, hidden: false,
-    setAttribute(k, v) { el.attrs[k] = v; },
-    getAttribute(k) { return Object.prototype.hasOwnProperty.call(el.attrs, k) ? el.attrs[k] : null; },
-    classList: { add() {}, remove() {}, contains() { return false; }, toggle() {} }
-  };
-  return el;
-}
-
-/** Render the promotional-credit card for one server state with the real code. */
-function renderCard(app, liveMode) {
-  const fn = extractFunction('renderLiveModeCard');
-  const map = INDEX.slice(INDEX.indexOf('const LIVE_MODE_STATUS_VIEW'),
-    INDEX.indexOf('function liveModeStatusView'));
-  const view = sliceFunction(INDEX, 'liveModeStatusView');
-  const promo = sliceFunction(INDEX, 'promoCreditText');
-  const ids = ['liveModeCard', 'promoCreditAmountRow', 'promoCreditAmount',
-    'liveModeStatusChip', 'promoCreditExplain', 'liveModeDepositBtn'];
-  const nodes = {};
-  ids.forEach((id) => { nodes[id] = makeEl(id); });
-  const sandbox = {
-    document: { getElementById: (id) => nodes[id] || null },
-    APP: Object.assign({ liveMode, environment: 'PRODUCTION' }, app || {}),
-    t: app.t, Number, isFinite, String
-  };
-  vm.createContext(sandbox);
-  vm.runInContext([map, view, promo, fn, 'globalThis.renderLiveModeCard = renderLiveModeCard;'].join('\n'), sandbox);
-  sandbox.renderLiveModeCard();
-  return nodes;
-}
-
 /* ------------------------------------------------ 1. no purchase UI exists */
 
 test('1. the activation purchase dialog, button and note are gone from the markup', () => {
@@ -156,44 +124,41 @@ test('3. the dead activation keys were removed from every locale', () => {
   });
 });
 
-/* ------------------------------------------- 2. the promotional-credit card */
+/* --------------------------------------- 2. the promotional-credit disclosure */
 
-test('4. the promo card asks for a deposit and never for a purchase', () => {
-  const i18n = dictionary();
-  const states = [
-    { status: 'activation_required', promoCredit: 50 },   // legacy server state
-    { status: 'deposit_required', promoCredit: 50 },
-    { status: 'funding_required', promoCredit: 0 },
-    { status: 'available', promoCredit: 50 }
-  ];
-  states.forEach((state) => {
-    const n = renderCard({ t: i18n.t, MIN_DEPOSIT: 50 }, state);
-    const text = n.promoCreditExplain.textContent;
-    assert.ok(!/activation|purchase|licence|license/i.test(text),
-      state.status + ' must not mention a purchase: ' + text);
-    assert.ok(!text.includes('{{'), state.status + ' must not leak a placeholder');
-    if (state.status === 'activation_required' || state.status === 'deposit_required') {
-      assert.match(text, /\$50\b/, 'the deposit minimum is interpolated');
-      assert.ok(!/hidden/.test(n.liveModeDepositBtn.className), 'the deposit action is offered');
-    }
-  });
-  // A legacy activation_required status is presented as "Deposit required".
-  const legacy = renderCard({ t: i18n.t, MIN_DEPOSIT: 50 }, { status: 'activation_required', promoCredit: 50 });
-  assert.strictEqual(legacy.liveModeStatusChip.textContent, i18n.T.en['liveMode.status.depositRequired']);
-  assert.strictEqual(legacy.liveModeStatusChip.getAttribute('data-live-mode'), 'activation_required',
-    'the raw server value is preserved for styling/debugging');
-});
-
-test('5. the promo amount stays interpolated and the copy asks only for a deposit', () => {
+test('4. the promotional-credit disclosure asks for a deposit and never for a purchase', () => {
+  // The standalone promotional-credit CARD was removed (management decision), so
+  // the ONE customer-facing disclosure is the yellow notice. It must still name
+  // the real next step (a qualifying deposit) and must never ask for a purchase.
   const i18n = dictionary();
   LANGS.forEach((l) => {
     i18n.setLang(l);
-    const n = renderCard({ t: i18n.t, MIN_DEPOSIT: 50 }, { status: 'available', promoCredit: 50 });
-    const text = n.promoCreditExplain.textContent;
-    assert.match(text, /50/, l + ' shows the amount');
-    assert.ok(!/activation|purchase|licence|license/i.test(text), l + ' asks for nothing to be bought');
-    assert.strictEqual(text, i18n.T[l]['promo.creditExplainTradable'].replace('{{amount}}', '50'),
-      l + ' renders the localized tradable sentence');
+    const text = i18n.T[l]['promo.tradableNotice'];
+    assert.ok(text, l + ' must define promo.tradableNotice');
+    assert.ok(!/activation|purchase|licence|license|buy/i.test(text),
+      l + ' must not mention a purchase: ' + text);
+    assert.ok(!/\{\{/.test(text), l + ' must not carry a placeholder');
+  });
+  // The card that used to render the deposit CTA is gone; the deposit action
+  // itself is still on the dashboard (account card).
+  assert.strictEqual(INDEX.indexOf('renderLiveModeCard'), -1, 'the card renderer is removed');
+  assert.match(INDEX, /id="availableDepositBtn"[^>]*onclick="openDepositModal\(\)"/,
+    'the deposit action remains reachable');
+});
+
+test('5. no customer-facing string asks the customer to buy anything', () => {
+  const i18n = dictionary();
+  // Only the journey-bearing keys: the notice, the deposit dialog and the Live
+  // Mode guidance. (Payhip keys may still exist server-side; they are not shown.)
+  const keys = ['promo.tradableNotice', 'liveMode.fundingNote', 'liveMode.depositNote',
+    'deposit.choose.crypto.title', 'deposit.choose.crypto.desc'];
+  LANGS.forEach((l) => {
+    keys.forEach((key) => {
+      const text = i18n.T[l][key];
+      if (!text) return;
+      assert.ok(!/activation|purchase|licence|license/i.test(text),
+        l + '/' + key + ' must not ask for a purchase: ' + text);
+    });
   });
 });
 

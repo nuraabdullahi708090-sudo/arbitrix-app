@@ -98,6 +98,14 @@ const { ENGINE_ASSETS: TRADING_ASSETS } = require('./services/tradingAssets');
 // Simulated, read-only arbitrage opportunities for the landing-page notification
 // card. Derived from the canonical registry above; moves no money.
 const { buildOpportunities: buildMarketOpportunities } = require('./services/MarketOpportunities');
+// Equity Performance: derives the dashboard chart from the PERSISTED realised
+// ledger plus the authoritative wallet balance. Pure + read-only - it never
+// writes a wallet, a trade or a transaction.
+const {
+  buildEquityPerformance,
+  resolveEquityPeriod,
+  equityPeriodStartIso,
+} = require('./services/EquityPerformance');
 // Deposit-page funding options. `DepositPartners` validates/projects the
 // admin-curated verified-partner directory; `CardPayments` is the
 // disabled-by-default switch for card-to-crypto (no provider is approved yet).
@@ -2000,6 +2008,21 @@ async function handleSandboxTransactions(req, res) {
     .limit(100);
   if (error) throw error;
   res.json(data);
+}
+
+/**
+ * MARKETING_SANDBOX equity performance: the SAME derivation over the simulated
+ * ledger (`sandbox_trades`), so the marketing dashboard chart cannot disagree
+ * with the simulated wallet either. Read-only.
+ */
+async function handleSandboxEquityPerformance(req, res) {
+  const period = resolveEquityPeriod(req.query.period);
+  const wallet = await getSandboxWallet(req.user.id);
+  const current = Number(wallet && wallet.balance) || 0;
+  const rows = await readEquityRows('sandbox_trades', req.user.id, equityPeriodStartIso(period));
+  res.set('Cache-Control', 'no-store');
+  res.json(Object.assign({ period, simulated: true },
+    buildEquityPerformance({ trades: rows, currentBalance: current, nowMs: Date.now() })));
 }
 
 async function handleSandboxBotStart(req, res) {
@@ -8984,6 +9007,63 @@ app.get('/api/transactions', authMiddleware, async (req, res) => {
   const { data, error } = await supabaseAdmin.from('transactions').select('id, type, amount, detail, created_at').eq('user_id', req.user.id).order('created_at', { ascending: false }).limit(100);
   if (error) throw error;
   res.json(data);
+});
+
+// ---------- Equity Performance (read-only) ----------
+// The dashboard chart must reconcile with PERSISTED records, so it is derived
+// from the realised ledger plus the authoritative wallet balance instead of a
+// client-side sample buffer (see services/EquityPerformance.js for the basis).
+// Read-only: no wallet, trade or transaction is written by this route.
+const EQUITY_MAX_ROWS = 2000;
+
+/** Ascending realised-trade rows for the window (bounded, newest kept). */
+async function readEquityRows(table, userId, sinceIso) {
+  const base = () => {
+    let q = supabaseAdmin
+      .from(table)
+      .select('amount, balance_after, created_at')
+      .eq('user_id', userId);
+    // Production trades carry a mode; sandbox_trades has no such column.
+    if (table === 'trades') q = q.eq('mode', 'live');
+    if (sinceIso) q = q.gte('created_at', sinceIso);
+    return q;
+  };
+  const { data, error } = await base()
+    .order('created_at', { ascending: true })
+    .limit(EQUITY_MAX_ROWS + 1);
+  if (error) throw error;
+  const rows = Array.isArray(data) ? data : [];
+  if (rows.length <= EQUITY_MAX_ROWS) return rows;
+  // Very long history: keep the TRUE first row (it defines `starting`) plus the
+  // most recent rows (they define the curve). The statistics stay exact because
+  // `current` is the wallet balance and `change = current - starting`.
+  const { data: recent, error: recentError } = await base()
+    .order('created_at', { ascending: false })
+    .limit(EQUITY_MAX_ROWS - 1);
+  if (recentError) throw recentError;
+  const firstAt = String(rows[0] && rows[0].created_at);
+  const tail = (Array.isArray(recent) ? recent : [])
+    .filter((r) => r && String(r.created_at) > firstAt)
+    .reverse();
+  return [rows[0]].concat(tail);
+}
+
+app.get('/api/equity/performance', authMiddleware, async (req, res) => {
+  // MARKETING_SANDBOX: the same derivation over the simulated ledger.
+  if (await sandboxHandled(req, res, handleSandboxEquityPerformance)) return;
+  try {
+    const period = resolveEquityPeriod(req.query.period);
+    const wallet = await getWallet(req.user.id);
+    const current = wallet ? (Number(wallet.live_balance) || 0) : 0;
+    const rows = await readEquityRows('trades', req.user.id, equityPeriodStartIso(period));
+    res.set('Cache-Control', 'no-store');
+    res.json(Object.assign({ period },
+      buildEquityPerformance({ trades: rows, currentBalance: current, nowMs: Date.now() })));
+  } catch (e) {
+    // Fail soft: the client keeps its cached series rather than blanking.
+    console.error('[GET /api/equity/performance]', e.message);
+    res.status(500).json({ error: 'Equity performance unavailable', retryable: true });
+  }
 });
 
 // ---------- In-app notifications ----------

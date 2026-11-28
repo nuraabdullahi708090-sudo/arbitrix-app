@@ -163,7 +163,11 @@ test('3b. the credit path needs no mode switch - the credit IS the entry state',
   assert.ok(!/\bsetMode\s*\(/.test(INDEX), 'no mode-switch call exists in this build');
   assert.ok(!/<button[^>]*data-wallet="demo"/.test(INDEX), 'no demo wallet tab');
   assert.ok(/<button[^>]*data-wallet="live"/.test(INDEX), 'the Live wallet tab is the entry view');
-  assert.ok(/id="liveModeCard"/.test(INDEX), 'the promotional-credit card is the entry surface');
+  // The standalone promotional-credit card was removed; the yellow notice plus
+  // the wallet card now carry that story on the same single view.
+  assert.ok(/id="promoCreditBanner"/.test(INDEX), 'the promotional-credit notice is present');
+  assert.ok(/id="liveWalletSection"/.test(INDEX), 'the Live wallet is the entry surface');
+  assert.ok(INDEX.indexOf('id="liveModeCard"') === -1, 'the removed card is gone');
   const ready = buildSandbox({ appWasReady: true });
   ready.chooseOnboarding('credit');
   assert.deepStrictEqual(ready.calls.goToApp, ['onboarding_credit']);

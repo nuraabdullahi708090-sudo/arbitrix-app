@@ -11414,3 +11414,65 @@ corrected. `npm test` = 4437 pass / 0 fail.
 Not verified from here: a real production webhook or a live q8pay invoice. The callback
 URL registration, Render env and the specific uncredited payment still need an operator
 (docs/payments/Q8QPAY-SETTLEMENT-AUDIT.md section 4).
+
+
+## Dashboard: standalone Promotional Credit card removed + Equity Performance made server-derived (2026-11-28, NOT deployed)
+
+### 1. Removed card (presentation only)
+- Deleted the standalone `#liveModeCard` block from `public/index.html` (Promotional Credit
+  heading, the promo balance, the "Live Mode available" chip and the explanation), plus
+  `renderLiveModeCard()`, `LIVE_MODE_STATUS_VIEW` / `liveModeStatusView()` /
+  `promoCreditText()`, their three call sites (registration, /api/auth/me sync, language
+  switch) and the now-empty `@media (max-width:640px)` rule that only styled it.
+- KEPT untouched: the upper Live Mode guidance card (`#startHereCard`, incl. its
+  `startHere.live.*` copy and Dismiss), the yellow `#promoCreditBanner`
+  (`promo.tradableNotice`), the account card (equity/available/P&L/bot + Deposit/Withdraw),
+  the wallet card, and every promotional RULE (classification, `PROMO_PROFIT_CAP_USD = 30`,
+  `PROMO_TRADING_LIMIT_REACHED`, the first-deposit-before-withdrawal rule). The server
+  `liveMode` payload and `APP.liveMode` adoption are unchanged; only its renderer is gone.
+- Dictionary keys of the removed card (`promo.creditTitle`, `promo.creditBadge`,
+  `promo.creditExplainTradable`, `liveMode.status.*`, `liveMode.cardTitle`,
+  `liveMode.fundingNote`, `liveMode.depositNote`, `liveMode.depositCta`) were deliberately
+  LEFT in place: removing them would need a 6-locale edit plus ~16 count pins for no
+  behavioural gain. Nothing renders them any more.
+
+### 2. Equity Performance: client sample buffer -> persisted ledger
+- ROOT CAUSE of "a $30 gain reads as ~$8 after a refresh": the chart was built from
+  `APP.chartData.live`, a localStorage sample buffer (`arbi_chart`) that appended the
+  displayed balance every few seconds and kept at most 100 points (`shift()`), with
+  "30M"/"1H" slicing that buffer by POINT COUNT (~4 min of 8s samples). After ~100 samples
+  the oldest point - the account's real starting equity - was gone, so "Starting" drifted
+  and the reported change shrank. It also only advanced when a point was appended in THAT
+  tab, so a missed append (no Chart.js instance, worker-executed trades, a silent early
+  return) froze the card until something else re-anchored it - the "it updated by itself
+  later" report.
+- NEW `services/EquityPerformance.js` (pure, no I/O, no wallet): `buildEquityPerformance`
+  derives the series from the PERSISTED ledger (`trades.amount` + `trades.balance_after`,
+  written by `record_trade_safe` in the same transaction as the wallet update) plus the
+  authoritative wallet balance. starting = balance before the window's first trade,
+  current = wallet, change = current - starting, high = max along the curve. Rows missing
+  `balance_after` still work via a cumulative walk. A deposit/withdrawal AFTER the last
+  trade is anchored as a final point, which is why change is EQUITY change and not the
+  trading P&L (they must not be conflated).
+- NEW read-only `GET /api/equity/performance?period=30m|1h|all` (authMiddleware), with the
+  MARKETING_SANDBOX branch reading `sandbox_trades`. No write, no RPC, no wallet mutation;
+  `Cache-Control: no-store`. `30M`/`1H` are now real TIME windows.
+- Client: `loadEquityPerformance()` adopts the server payload into `APP.chartData.live`
+  (labels/values) and `updateChartStats()` renders the server's starting/current/change/
+  high. `appendChartPoint()` and `updateChart()` refuse to splice local points into a
+  loaded server series (they schedule a refresh instead), and `filterChartData()` never
+  re-slices it. Called at login/refresh (initApp), after each persisted trade, after each
+  worker sync tick, and on every period-tab change; debounced to one read per 4s, with a
+  bounded retry (3 x 8s) so a failed read cannot leave the card stale, and cleared on
+  logout. The old buffer remains only as the pre-fetch paint/fallback.
+- Tests: NEW `tests/equity_performance.test.js` (22) - basis, promo vs funded, mixed P&L,
+  deposits inside/after the window, long history (150 trades) no longer truncating, period
+  windows, refresh/re-login determinism, downsampling, the route contract, the real
+  `updateChartStats` in a vm, and the retry budget. Rewritten for the removal:
+  `live_status_card_title` (9), `promo_credit_display` (17), plus pins in
+  `activation_copy_truthfulness`, `dashboard_phase2`, `deposit_discoverability`,
+  `onboarding_funnel`. `npm test` = 4511 tests, 4510 pass, 0 fail, 1 pre-existing skip.
+- Verified in headless Chromium against the real page: `#liveModeCard` absent,
+  `#startHereCard`/`#promoCreditBanner`/Deposit/Withdraw intact, chart Current == Total
+  Equity ($80.49) while Today's P&L stays $30.49 (not forced equal), and switching to 1H
+  re-queries the server (start $74.40 / change +$6.09) instead of slicing a local buffer.
